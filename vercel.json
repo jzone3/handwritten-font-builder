@@ -4,7 +4,7 @@
   "outputDirectory": "site",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/f/:id([a-z0-9]{6,12})", "destination": "/f/index.html" }
+    { "source": "/f/:id([a-z0-9]{6,12})", "destination": "/f" }
   ],
   "headers": [
     { "source": "/(.*)\\.(png|css|js|svg)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }] }
