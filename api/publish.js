@@ -43,8 +43,8 @@ export default async function handler(req, res) {
   if (typeof body.published === 'boolean') meta.published = body.published;
 
   await Promise.all([
-    writeFile(meta.id, 'font.otf', otf, 'font/otf'),
-    writeFile(meta.id, 'strokes.json', JSON.stringify(strokes), 'application/json'),
+    writeFile(meta.id, 'font', otf, 'font/otf'),
+    writeFile(meta.id, 'strokes', JSON.stringify(strokes), 'application/json'),
   ]);
   await writeMeta(meta);
   await upsertIndex(meta);

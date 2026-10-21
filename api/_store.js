@@ -1,11 +1,14 @@
 import { put, list, del } from '@vercel/blob';
 
-// Layout in the blob store:
-//   fonts/<id>/meta.json     {id, name, glyphs, createdAt, updatedAt, published, downloads, tokenHash}
-//   fonts/<id>/font.otf
-//   fonts/<id>/strokes.json
-// Blob URLs are cached at the edge; we keep the max-age short so edits show up quickly.
-const PUT_OPTS = { access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60 };
+// Layout in the blob store. Every write gets a new, timestamped pathname and older versions are
+// deleted afterwards: overwriting the same URL is edge-cached for up to a minute, which made
+// publish/unpublish/download counts show stale values.
+//   fonts/<id>/meta/<ts>.json      {id, name, glyphs, createdAt, updatedAt, published, downloads, city…, tokenHash}
+//   fonts/<id>/font/<ts>.otf
+//   fonts/<id>/strokes/<ts>.json
+//   index/<ts>.json                 gallery index (published fonts only)
+const PUT_OPTS = { access: 'public', addRandomSuffix: false, cacheControlMaxAge: 60 };
+const ts = () => String(Date.now()).padStart(14, '0');
 
 export function json(res, status, body, extra = {}) {
   res.statusCode = status;
@@ -29,33 +32,57 @@ export async function sha256(s) {
   return createHash('sha256').update(s).digest('hex');
 }
 
-export async function findBlob(pathname) {
-  const r = await list({ prefix: pathname, limit: 1 });
-  return r.blobs.find(b => b.pathname === pathname) || null;
+// Newest blob under a prefix (pathnames sort by timestamp) plus the older ones.
+export async function versions(prefix) {
+  const r = await list({ prefix, limit: 100 });
+  const blobs = r.blobs.slice().sort((a, b) => (a.pathname < b.pathname ? 1 : -1));
+  return { latest: blobs[0] || null, older: blobs.slice(1) };
 }
 
-export async function fetchFresh(url) {
-  const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+export async function findLatest(prefix) {
+  return (await versions(prefix)).latest;
+}
+
+export async function fetchBlob(url) {
+  const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) throw new Error('blob fetch ' + r.status);
   return r;
 }
 
+async function putVersioned(prefix, ext, body, contentType) {
+  const b = await put(`${prefix}${ts()}${ext}`, body, { ...PUT_OPTS, contentType });
+  // Best-effort cleanup of previous versions.
+  try {
+    const { older } = await versions(prefix);
+    const stale = older.filter(o => o.url !== b.url);
+    if (stale.length) await del(stale.map(o => o.url));
+  } catch (e) { console.error('cleanup failed', e); }
+  return b;
+}
+
 export async function readMeta(id) {
-  const b = await findBlob(`fonts/${id}/meta.json`);
+  const b = await findLatest(`fonts/${id}/meta/`);
   if (!b) return null;
-  return (await fetchFresh(b.url)).json();
+  return (await fetchBlob(b.url)).json();
 }
 
 export async function writeMeta(meta) {
-  await put(`fonts/${meta.id}/meta.json`, JSON.stringify(meta), { ...PUT_OPTS, contentType: 'application/json' });
+  return putVersioned(`fonts/${meta.id}/meta/`, '.json', JSON.stringify(meta), 'application/json');
 }
 
-export async function writeFile(id, name, body, contentType) {
-  return put(`fonts/${id}/${name}`, body, { ...PUT_OPTS, contentType });
+export async function writeFile(id, kind, body, contentType) {
+  const ext = kind === 'strokes' ? '.json' : '.otf';
+  return putVersioned(`fonts/${id}/${kind}/`, ext, body, contentType);
+}
+
+export async function readFile(id, kind) {
+  const b = await findLatest(`fonts/${id}/${kind}/`);
+  if (!b) return null;
+  return Buffer.from(await (await fetchBlob(b.url)).arrayBuffer());
 }
 
 export async function deleteFont(id) {
-  const r = await list({ prefix: `fonts/${id}/` });
+  const r = await list({ prefix: `fonts/${id}/`, limit: 1000 });
   if (r.blobs.length) await del(r.blobs.map(b => b.url));
 }
 
@@ -64,11 +91,10 @@ export function publicMeta(m) {
   return rest;
 }
 
-// Gallery index: one small JSON blob rewritten on publish/unpublish/download.
 export async function readIndex() {
-  const b = await findBlob('index.json');
+  const b = await findLatest('index/');
   if (!b) return { fonts: [] };
-  try { return await (await fetchFresh(b.url)).json(); } catch { return { fonts: [] }; }
+  try { return await (await fetchBlob(b.url)).json(); } catch { return { fonts: [] }; }
 }
 
 export async function upsertIndex(meta) {
@@ -78,6 +104,6 @@ export async function upsertIndex(meta) {
   if (meta.published) idx.fonts.push(entry);
   idx.fonts.sort((a, b) => (b.downloads - a.downloads) || (b.updatedAt > a.updatedAt ? 1 : -1));
   idx.fonts = idx.fonts.slice(0, 500);
-  await put('index.json', JSON.stringify(idx), { ...PUT_OPTS, contentType: 'application/json' });
+  await putVersioned('index/', '.json', JSON.stringify(idx), 'application/json');
   return idx;
 }
