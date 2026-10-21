@@ -17,7 +17,7 @@
     versions: {},        // char -> int, bumps on edit (trace cache key)
     current: 0,
     fontName: 'My Handwriting',
-    thickness: 0.045,
+    thickness: 0.06,
     spacing: 0.06,
   };
   const traceCache = new Map();

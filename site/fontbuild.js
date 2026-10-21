@@ -3,9 +3,12 @@
   'use strict';
 
   const UPM = 1000;
-  const BASELINE = 0.76;      // em from the top of the glyph box (see FORMAT.md)
-  const ASCENDER = Math.round(BASELINE * UPM);
-  const DESCENDER = -Math.round((1 - BASELINE) * UPM);
+  // The glyph box is taller than one em so a letter drawn to the cap-height guide
+  // comes out ~700 units tall, like a normal font (box height 1250 → cap 0.56 × 1250 = 700).
+  const BOX = 1250;
+  const BASELINE = 0.76;      // box units from the top (see FORMAT.md)
+  const ASCENDER = Math.round(BASELINE * BOX);
+  const DESCENDER = -Math.round((1 - BASELINE) * BOX);
 
   // Contour polygon (pixels, y down) → opentype.Path using the vertices as quadratic
   // control points and midpoints as on-curve points (smooth, compact).
@@ -30,12 +33,12 @@
   function buildFont(glyphData, opts) {
     const name = (opts.name || 'My Handwriting').trim() || 'My Handwriting';
     const thickness = opts.thickness || 0.045;
-    const sb = Math.round((opts.spacing == null ? 0.06 : opts.spacing) * UPM);
+    const sb = Math.round((opts.spacing == null ? 0.06 : opts.spacing) * BOX);
     const cache = opts.traceCache;
 
     const glyphs = [];
     glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
-    glyphs.push(new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: Math.round(0.28 * UPM), path: new opentype.Path() }));
+    glyphs.push(new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: Math.round(0.28 * BOX), path: new opentype.Path() }));
 
     const chars = Object.keys(glyphData).filter(c => glyphData[c] && glyphData[c].length && c !== ' ');
     for (const ch of chars) {
@@ -50,9 +53,9 @@
 
       let minPx = Infinity, maxPx = -Infinity;
       for (const c of traced.contours) for (const p of c) { if (p[0] < minPx) minPx = p[0]; if (p[0] > maxPx) maxPx = p[0]; }
-      const scale = UPM / traced.res;
+      const scale = BOX / traced.res;
       const toFontX = (px) => Math.round((px - minPx) * scale) + sb;
-      const toFontY = (py) => Math.round((BASELINE - (traced.oy + py / traced.res)) * UPM);
+      const toFontY = (py) => Math.round((BASELINE - (traced.oy + py / traced.res)) * BOX);
       const path = new opentype.Path();
       for (const c of traced.contours) contourToPath(path, c, toFontX, toFontY);
       const advance = Math.round((maxPx - minPx) * scale) + 2 * sb;
@@ -78,5 +81,5 @@
     return NAMES[ch] || ('uni' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
   }
 
-  window.FontBuild = { buildFont, UPM, BASELINE };
+  window.FontBuild = { buildFont, UPM, BOX, BASELINE };
 })();
