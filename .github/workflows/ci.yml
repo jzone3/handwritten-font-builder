@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths: ["mac/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["mac/**", ".github/workflows/ci.yml"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: mac
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build Debug
+        run: |
+          set -o pipefail
+          xcodebuild -project HandwrittenFontBuilder.xcodeproj -scheme HandwrittenFontBuilder \
+            -configuration Debug -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || {
+            { grep -E "error:|warning: " build.log || true; }
+            tail -40 build.log
+            exit 1
+          }
+          { grep -E "warning: " build.log || true; }
+          tail -3 build.log
+      - run: scripts/test-format.sh

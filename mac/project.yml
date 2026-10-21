@@ -1,0 +1,31 @@
+name: HandwrittenFontBuilder
+options:
+  bundleIdPrefix: com.jzone3
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  xcodeVersion: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    SWIFT_STRICT_CONCURRENCY: minimal
+targets:
+  HandwrittenFontBuilder:
+    type: application
+    platform: macOS
+    sources:
+      - path: HandwrittenFontBuilder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jzone3.HandwrittenFontBuilder
+        PRODUCT_NAME: Handwritten Font Builder
+        INFOPLIST_FILE: HandwrittenFontBuilder/Resources/Info.plist
+        ENABLE_APP_SANDBOX: NO
+        GENERATE_INFOPLIST_FILE: NO
