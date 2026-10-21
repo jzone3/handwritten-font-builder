@@ -1,10 +1,11 @@
 import Foundation
 
 /// The character set and the guide-line geometry shared with the website (see FORMAT.md at the repo root).
+/// ) ] } > are mirrored from ( [ { < and curly quotes/dashes derived from ' " - by the website's font builder, so they are not drawn.
 /// Units: 1.0 = the height of the glyph box, y grows downward.
 enum GlyphSet {
     static let characters: [Character] = Array(
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "abcdefghijklmnopqrstuvwxyz" + "0123456789" + ".,!?'\"-_()[]{}/\\:;@#$%&*+=<>~^|`"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "abcdefghijklmnopqrstuvwxyz" + "0123456789" + ".,!?'\"-_([{/\\:;@#$%&*+=<~^|`"
     )
 
     static let capHeight = 0.20

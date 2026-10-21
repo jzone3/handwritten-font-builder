@@ -138,3 +138,11 @@ body.dragging .drop-overlay { display: flex; }
 .ticker-time { font-size: 30px; line-height: 1.15; white-space: nowrap; overflow: hidden; }
 .ticker-where { font-size: 12px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) { .ticker-row { animation: none; } .ticker-track { overflow-x: auto; } }
+
+/* Corner pills (same as uselocalflow.app): quiet until hovered. */
+.corner { position: fixed; top: 16px; z-index: 10; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px 0 12px; border-radius: 999px; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; background: #f1f1f1; color: #000; opacity: 0.45; transition: opacity 0.35s ease, background 0.2s ease; }
+.corner:hover, .corner:focus-visible { opacity: 1; background: #e6e6e6; }
+.corner.left { left: 20px; }
+.corner.right { right: 20px; }
+.corner svg { flex: none; }
+@media (max-width: 640px) { .corner { top: 10px; height: 28px; font-size: 12px; } .corner.left { left: 10px; } .corner.right { right: 10px; } }
