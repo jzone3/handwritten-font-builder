@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     if (!ID_RE.test(id || '')) return json(res, 400, { error: 'bad id' });
     const meta = await readMeta(id);
     if (!meta) return json(res, 404, { error: 'not found' });
-    return json(res, 200, publicMeta(meta), { 'Cache-Control': 'public, max-age=30' });
+    return json(res, 200, publicMeta(meta), { 'Cache-Control': 'public, max-age=0, s-maxage=5, stale-while-revalidate=30' });
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'GET or POST' });
   let body;
