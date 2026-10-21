@@ -5,6 +5,7 @@
   const ASPECT = 1.6;
   const GUIDES = { cap: 0.20, xh: 0.46, base: 0.76 };
   const STORAGE_KEY = 'hfb.project.v1';
+  const MAC_DOWNLOAD = 'https://github.com/jzone3/handwritten-font-builder/releases/latest/download/Handwritten-Font-Builder.dmg';
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclamation mark', '?': 'question mark', "'": 'apostrophe', '"': 'double quote', '-': 'hyphen', '_': 'underscore', '(': 'open paren', ')': 'close paren', '[': 'open bracket', ']': 'close bracket', '{': 'open brace', '}': 'close brace', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at sign', '#': 'hash', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equals', '<': 'less than', '>': 'greater than', '~': 'tilde', '^': 'caret', '|': 'vertical bar', '`': 'backtick' };
 
   const $ = (id) => document.getElementById(id);
@@ -45,7 +46,8 @@
   // ---------- pad ----------
   function padSize() {
     const w = pad.clientWidth;
-    return { w, h: w / ASPECT };
+    const aspect = w < 520 ? 1.25 : ASPECT;
+    return { w, h: w / aspect };
   }
   function resizePad() {
     const { w, h } = padSize();
@@ -122,6 +124,9 @@
     const r = pad.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   }
+  // iOS: stop scroll / rubber-band / long-press while the finger is on the pad.
+  for (const t of ['touchstart', 'touchmove', 'touchend']) pad.addEventListener(t, (e) => e.preventDefault(), { passive: false });
+  pad.addEventListener('contextmenu', (e) => e.preventDefault());
   pad.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
@@ -143,7 +148,7 @@
   // Hold Space: draw while moving the mouse/trackpad without clicking.
   const isTyping = () => { const el = document.activeElement; return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); };
   window.addEventListener('keydown', (e) => {
-    if (isTyping()) return;
+    if (isTyping() || $('screen-draw').hidden) return;
     if (e.code === 'Space') {
       e.preventDefault();
       if (!spaceDown) {
@@ -193,7 +198,10 @@
     $('nextBtn').disabled = state.current === CHARSET.length - 1;
     grid.querySelectorAll('.glyph-cell').forEach((el, i) => el.classList.toggle('current', i === state.current));
     const cell = grid.children[state.current];
-    if (cell && cell.scrollIntoViewIfNeeded) cell.scrollIntoViewIfNeeded(false);
+    if (cell && grid.scrollWidth > grid.clientWidth + 4) {
+      const target = cell.offsetLeft - (grid.clientWidth - cell.offsetWidth) / 2;
+      grid.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
     drawPad();
   }
   function scheduleAdvance() {
@@ -282,13 +290,12 @@
     $('progress').textContent = n + ' / ' + CHARSET.length + ' drawn';
     $('downloadFont').disabled = n === 0;
     $('saveProject').disabled = n === 0;
+    $('finishBtn').disabled = n === 0;
   }
 
   // ---------- font preview ----------
   let buildSeq = 0, buildTimer = null, currentFace = null, currentFont = null;
-  const status = document.createElement('p');
-  status.className = 'preview-status';
-  $('previewBox').insertAdjacentElement('afterend', status);
+  const status = $('previewStatus');
 
   function scheduleBuild() {
     clearTimeout(buildTimer);
@@ -321,7 +328,8 @@
     document.fonts.add(face);
     currentFace = face; currentFont = font;
     $('previewBox').style.fontFamily = '"' + family + '", "Comic Sans MS", cursive';
-    status.textContent = (font.glyphs.length - 2) + ' letters in the font · ' + Math.round(buf.byteLength / 1024) + ' KB';
+    const n2 = font.glyphs.length - 2;
+    status.textContent = n2 + ' of ' + CHARSET.length + ' letters drawn · ' + Math.round(buf.byteLength / 1024) + ' KB' + (n2 < CHARSET.length ? ' · missing letters show in a plain font' : '');
     if (traceCache.size > 400) traceCache.clear();
   }
 
@@ -372,8 +380,8 @@
     }
     if (typeof d.fontName === 'string' && d.fontName.trim()) { state.fontName = d.fontName.trim().slice(0, 40); $('fontName').value = state.fontName; }
     renderAllThumbs(); updateCurrent(); save(); scheduleBuild();
+    showScreen('done');
     status.textContent = 'Imported ' + count + ' letters' + (d.source === 'mac-app' ? ' from the Mac app.' : '.');
-    $('previewBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   // Drag & drop anywhere.
@@ -391,7 +399,61 @@
     if (!confirm('Erase every letter and start over?')) return;
     state.glyphs = {}; state.versions = {}; state.current = 0; traceCache.clear();
     renderAllThumbs(); updateCurrent(); save(); scheduleBuild();
+    showScreen('draw');
   });
+
+  // ---------- screens ----------
+  const SCREENS = ['start', 'draw', 'done'];
+  function showScreen(name, push) {
+    if (!SCREENS.includes(name)) name = 'start';
+    if (name === 'done' && !Object.keys(state.glyphs).length) name = 'draw';
+    if (drawing) endStroke();
+    cancelAdvance();
+    for (const s of SCREENS) $('screen-' + s).hidden = s !== name;
+    document.querySelectorAll('nav a[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === name));
+    if (location.hash !== '#' + name) history[push === false ? 'replaceState' : 'pushState'](null, '', '#' + name);
+    window.scrollTo(0, 0);
+    if (name === 'draw') { resizePad(); updateCurrent(); }
+    if (name === 'done') { rebuild(); }
+  }
+  window.addEventListener('hashchange', () => showScreen(location.hash.slice(1) || 'start', false));
+  document.querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); showScreen(a.dataset.nav); }));
+  $('finishBtn').addEventListener('click', () => showScreen('done'));
+  $('backToDraw').addEventListener('click', () => showScreen('draw'));
+  $('importLink').addEventListener('click', (e) => { e.preventDefault(); $('importFile').click(); });
+
+  function detectDevice() {
+    const ua = navigator.userAgent || '';
+    const touchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    if (/iPhone|iPod/.test(ua)) return 'iphone';
+    if (/iPad/.test(ua) || touchMac) return 'ipad';
+    if (/Android/.test(ua)) return 'android';
+    if (/Macintosh|Mac OS X/.test(ua)) return 'mac';
+    if (/Windows/.test(ua)) return 'windows';
+    return 'other';
+  }
+  function setupStart() {
+    const d = detectDevice();
+    const line = $('deviceLine'), acts = $('deviceActions'), note = $('deviceNote');
+    const btn = (label, cls, onClick) => { const b = document.createElement('button'); b.textContent = label; b.className = cls; b.addEventListener('click', onClick); return b; };
+    const start = () => showScreen('draw');
+    acts.innerHTML = '';
+    if (d === 'mac') {
+      line.textContent = 'Looks like you\'re on a Mac. The free Mac app turns your trackpad into a drawing tablet: write each letter with a finger, no clicking.';
+      const a = document.createElement('a'); a.className = 'button primary'; a.textContent = 'Download the Mac app'; a.href = MAC_DOWNLOAD;
+      acts.appendChild(a);
+      acts.appendChild(btn('Continue on the web →', '', start));
+      note.textContent = 'In the browser you click and drag to draw, which is clumsier. The app exports a file you import here.';
+    } else if (d === 'iphone' || d === 'ipad' || d === 'android') {
+      line.textContent = 'Looks like you\'re on ' + (d === 'iphone' ? 'an iPhone' : d === 'ipad' ? 'an iPad' : 'an Android phone') + '. Draw the letters with your finger' + (d === 'ipad' ? ' or a Pencil' : '') + '; that works nicely.';
+      acts.appendChild(btn('Start writing →', 'primary', start));
+      note.textContent = 'Turn the phone sideways for a bigger box.';
+    } else {
+      line.textContent = 'Looks like you\'re on ' + (d === 'windows' ? 'Windows' : 'a computer') + '. Draw with a mouse, trackpad, or touchscreen.';
+      acts.appendChild(btn('Start writing →', 'primary', start));
+      note.textContent = 'Tip: hold Space and move the pointer to draw without clicking.';
+    }
+  }
 
   // ---------- controls ----------
   $('undoBtn').addEventListener('click', undo);
@@ -410,9 +472,11 @@
   $('fontName').value = state.fontName;
   $('thickness').value = state.thickness;
   $('spacing').value = state.spacing;
+  $('previewBox').style.fontSize = $('previewSize').value + 'px';
   buildGrid();
   renderAllThumbs();
-  resizePad();
-  updateCurrent();
+  setupStart();
+  const initial = location.hash.slice(1);
+  showScreen(initial || (Object.keys(state.glyphs).length ? 'draw' : 'start'), false);
   scheduleBuild();
 })();
