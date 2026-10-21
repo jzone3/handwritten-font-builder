@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths: ["mac/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["mac/**", ".github/workflows/ci.yml"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: mac
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - run: >
+          xcodebuild -project HandwrittenFontBuilder.xcodeproj -scheme HandwrittenFontBuilder
+          -configuration Debug -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO build | tail -20
+      - run: scripts/test-format.sh
