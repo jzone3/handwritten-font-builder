@@ -60,6 +60,9 @@
       for (const c of traced.contours) contourToPath(path, c, toFontX, toFontY);
       const advance = Math.round((maxPx - minPx) * scale) + 2 * sb;
       glyphs.push(new opentype.Glyph({ name: glyphName(ch), unicode: ch.codePointAt(0), advanceWidth: advance, path }));
+      for (const cp of ALIASES[ch] || []) {
+        glyphs.push(new opentype.Glyph({ name: 'uni' + cp.toString(16).toUpperCase().padStart(4, '0'), unicode: cp, advanceWidth: advance, path }));
+      }
     }
 
     const font = new opentype.Font({
@@ -75,6 +78,15 @@
 
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclam', '?': 'question', "'": 'quotesingle', '"': 'quotedbl', '-': 'hyphen', '_': 'underscore', '(': 'parenleft', ')': 'parenright', '[': 'bracketleft', ']': 'bracketright', '{': 'braceleft', '}': 'braceright', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at', '#': 'numbersign', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equal', '<': 'less', '>': 'greater', '~': 'asciitilde', '^': 'asciicircum', '|': 'bar', '`': 'grave' };
   const DIGITS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  // Typographic characters nobody draws, mapped onto the plain ones they did draw.
+  const ALIASES = {
+    "'": [0x2018, 0x2019],       // ‘ ’
+    '"': [0x201C, 0x201D],       // “ ”
+    '-': [0x2010, 0x2013, 0x2014, 0x2212], // ‐ – — −
+    '.': [0x00B7],               // ·
+    ' ': [0x00A0],
+  };
+
   function glyphName(ch) {
     if (/[A-Za-z]/.test(ch)) return ch;
     if (/[0-9]/.test(ch)) return DIGITS[+ch];
