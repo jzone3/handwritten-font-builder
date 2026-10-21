@@ -466,6 +466,7 @@
   $('spacing').addEventListener('input', (e) => { state.spacing = +e.target.value; save(); scheduleBuild(); });
   $('previewSize').addEventListener('input', (e) => { $('previewBox').style.fontSize = e.target.value + 'px'; });
   window.addEventListener('resize', resizePad);
+  if (window.ResizeObserver) new ResizeObserver(() => { if (!$('screen-draw').hidden && Math.abs(pad.clientWidth * (window.devicePixelRatio || 1) - pad.width) > 1) resizePad(); }).observe(pad);
 
   // ---------- boot ----------
   load();
