@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Where the strokes file goes to become a font. The parent/website owner sets the final domain here.
 enum Links {
-    static let website = URL(string: "https://handwritten-font-builder.vercel.app")!
+    static let website = URL(string: "https://buildyourownfont.com")!
     static let repo = URL(string: "https://github.com/jzone3/handwritten-font-builder")!
     static let author = URL(string: "https://x.com/imjaredz")!
     static let devin = URL(string: "https://devin.ai")!
