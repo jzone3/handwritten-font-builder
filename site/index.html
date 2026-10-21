@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handwritten Font Builder</title>
+<meta name="description" content="Write a few letters, get a real font file. Draw in the browser, or write on your Mac trackpad with the free Mac app.">
+<meta property="og:title" content="Handwritten Font Builder">
+<meta property="og:description" content="Write a few letters, get a real font file. Draw in the browser, or write on your Mac trackpad with the free Mac app.">
+<meta property="og:image" content="/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Handwritten Font Builder</a>
+  <nav>
+    <a href="#mac">Mac app</a>
+    <a href="https://github.com/jzone3/handwritten-font-builder">Source</a>
+    <a href="https://devin.ai">Built by Devin</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Write a few letters. Get a font.</h1>
+    <p>Draw each character below, or <a href="#mac">write on your Mac trackpad</a> with the free app. Everything runs in your browser; nothing is uploaded.</p>
+  </section>
+
+  <section class="builder">
+    <div class="pad-col">
+      <div class="pad-head">
+        <div class="pad-title">
+          <span class="pad-char" id="padChar">A</span>
+          <span class="pad-hint" id="padHint">Draw the capital A</span>
+        </div>
+        <div class="pad-tools">
+          <button id="undoBtn" title="Undo (⌘Z)">Undo</button>
+          <button id="clearBtn" title="Clear">Clear</button>
+          <button id="prevBtn" title="Previous (←)">←</button>
+          <button id="nextBtn" class="primary" title="Next (→ / Enter)">Next →</button>
+        </div>
+      </div>
+      <div class="pad-wrap">
+        <canvas id="pad"></canvas>
+      </div>
+      <p class="pad-tip">Trackpad users: click and drag to draw, or hold <kbd>Space</kbd> and move to draw without clicking. The <a href="#mac">Mac app</a> is much nicer: it turns the trackpad into a drawing tablet.</p>
+    </div>
+
+    <div class="grid-col">
+      <div class="grid-head">
+        <span id="progress">0 / 0 drawn</span>
+        <label class="small"><input type="checkbox" id="autoAdvance" checked> Next after each letter</label>
+      </div>
+      <div class="glyph-grid" id="glyphGrid"></div>
+    </div>
+  </section>
+
+  <section class="preview">
+    <div class="preview-head">
+      <h2>Your font</h2>
+      <div class="controls">
+        <label>Name <input id="fontName" type="text" value="My Handwriting" maxlength="40"></label>
+        <label>Thickness <input id="thickness" type="range" min="0.02" max="0.10" step="0.005" value="0.045"></label>
+        <label>Spacing <input id="spacing" type="range" min="0" max="0.2" step="0.01" value="0.06"></label>
+        <label>Size <input id="previewSize" type="range" min="18" max="96" step="1" value="42"></label>
+      </div>
+    </div>
+    <div class="preview-box" id="previewBox" contenteditable="true" spellcheck="false">The quick brown fox jumps over the lazy dog. 0123456789</div>
+    <div class="actions">
+      <button id="downloadFont" class="primary">Download font (.otf)</button>
+      <button id="saveProject">Save strokes (.json)</button>
+      <button id="importBtn">Import strokes…</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button id="resetBtn" class="danger">Start over</button>
+    </div>
+    <p class="small muted">Install the .otf like any font (double-click on Mac or Windows). It works in Pages, Word, Figma, Keynote, and on the web with <code>@font-face</code>. Letters you haven't drawn fall back to another font.</p>
+  </section>
+
+  <section class="mac" id="mac">
+    <h2>Better on a Mac</h2>
+    <p>A browser only sees your trackpad as a mouse, so you have to click to draw. The free Mac app uses the trackpad like a drawing tablet: touch to write, lift to stop, no clicking. Write every letter with a finger, export one file, and drop it on this page.</p>
+    <p class="actions">
+      <a class="button primary" id="macDownload" href="https://github.com/jzone3/handwritten-font-builder/releases/latest/download/Handwritten-Font-Builder.dmg">Download for Mac</a>
+      <span class="small muted">macOS 13 or later · free · open source</span>
+    </p>
+  </section>
+</main>
+
+<footer>
+  <span>Made by <a href="https://x.com/imjaredz">@imjaredz</a>, built with <a href="https://devin.ai">Devin</a>. Inspired by <a href="https://x.com/ivanleomk/status/2112802990482657770">Ivan Leo's handwriting font</a>.</span>
+</footer>
+
+<div class="drop-overlay" id="dropOverlay">Drop your strokes file to import</div>
+
+<script src="/vendor/opentype.min.js"></script>
+<script src="/tracer.js"></script>
+<script src="/fontbuild.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
