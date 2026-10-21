@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>All fonts · Handwritten Font Builder</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Handwritten Font Builder</a>
+  <nav><a href="/#start">Make your own</a></nav>
+</header>
+<main>
+  <section class="screen">
+    <h2>All fonts</h2>
+    <p class="muted">Everyone's handwriting, most downloaded first. Each name is set in its own font.</p>
+    <ol class="font-list" id="fontList"><li class="muted">Loading…</li></ol>
+  </section>
+</main>
+<footer><span>Made by <a href="https://x.com/imjaredz">@imjaredz</a>, built with <a href="https://devin.ai">Devin</a>.</span></footer>
+<script>
+(async function () {
+  const list = document.getElementById('fontList');
+  const r = await fetch('/api/fonts');
+  const d = r.ok ? await r.json() : { fonts: [] };
+  if (!d.fonts.length) { list.innerHTML = '<li class="muted">No fonts yet. <a href="/#start">Be the first.</a></li>'; return; }
+  list.innerHTML = '';
+  d.fonts.forEach((f, i) => {
+    const li = document.createElement('li');
+    const a = document.createElement('a'); a.href = '/f/' + f.id; a.className = 'font-name'; a.textContent = f.name;
+    const meta = document.createElement('span'); meta.className = 'small muted';
+    meta.textContent = f.glyphs + ' letters · ' + f.downloads + ' download' + (f.downloads === 1 ? '' : 's');
+    li.appendChild(a); li.appendChild(meta); list.appendChild(li);
+    if (i < 40) {
+      const fam = 'HFB_' + f.id;
+      const face = new FontFace(fam, 'url(/api/file?id=' + f.id + '&kind=otf)');
+      face.load().then(() => { document.fonts.add(face); a.style.fontFamily = '"' + fam + '", cursive'; }).catch(() => {});
+    }
+  });
+})();
+</script>
+</body>
+</html>

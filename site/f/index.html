@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A handwritten font</title>
+<meta name="description" content="A font made from someone's handwriting. See it, download it, make your own.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Handwritten Font Builder</a>
+  <nav>
+    <a href="/fonts">All fonts</a>
+    <a href="/#start">Make your own</a>
+  </nav>
+</header>
+
+<main>
+  <section class="screen">
+    <div class="preview-head">
+      <div>
+        <h2 id="fontTitle">Loading…</h2>
+        <p class="preview-status" id="fontMeta"></p>
+      </div>
+      <div class="controls">
+        <label>Size <input id="previewSize" type="range" min="16" max="72" step="1" value="30"></label>
+      </div>
+    </div>
+    <div class="preview-box" id="previewBox" contenteditable="true" spellcheck="false">Jabberwocky
+by Lewis Carroll
+
+’Twas brillig, and the slithy toves
+Did gyre and gimble in the wabe:
+All mimsy were the borogoves,
+And the mome raths outgrabe.
+
+“Beware the Jabberwock, my son!
+The jaws that bite, the claws that catch!
+Beware the Jubjub bird, and shun
+The frumious Bandersnatch!”
+
+He took his vorpal sword in hand;
+Long time the manxome foe he sought—
+So rested he by the Tumtum tree
+And stood awhile in thought.
+
+And, as in uffish thought he stood,
+The Jabberwock, with eyes of flame,
+Came whiffling through the tulgey wood,
+And burbled as it came!
+
+One, two! One, two! And through and through
+The vorpal blade went snicker-snack!
+He left it dead, and with its head
+He went galumphing back.
+
+“And hast thou slain the Jabberwock?
+Come to my arms, my beamish boy!
+O frabjous day! Callooh! Callay!”
+He chortled in his joy.
+
+’Twas brillig, and the slithy toves
+Did gyre and gimble in the wabe:
+All mimsy were the borogoves,
+And the mome raths outgrabe.</div>
+    <p class="small muted">Tap into the poem and type to try your own words.</p>
+    <div class="actions">
+      <a id="downloadBtn" class="button primary" href="#">Download font (.otf)</a>
+      <button id="shareBtn">Share…</button>
+      <a id="strokesBtn" class="button" href="#">Strokes (.json)</a>
+      <a class="button" href="/#start">Make your own →</a>
+    </div>
+    <p class="small muted">Install the .otf like any font (double-click on Mac or Windows; on iPhone, open the file and use a font installer app or AirDrop it to a Mac).</p>
+
+    <div class="owner" id="ownerBox" hidden>
+      <h3>This is your font</h3>
+      <label class="small"><input type="checkbox" id="publishedToggle"> Published — listed on <a href="/fonts">All fonts</a> and open to anyone with the link</label>
+      <p class="small muted"><a href="/#done">Keep editing it</a> · <a href="#" id="deleteLink">Delete it from the site</a></p>
+      <p class="small muted" id="ownerStatus"></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Made with <a href="/">Handwritten Font Builder</a> by <a href="https://x.com/imjaredz">@imjaredz</a>, built with <a href="https://devin.ai">Devin</a>.</span>
+</footer>
+<script src="/f/page.js"></script>
+</body>
+</html>

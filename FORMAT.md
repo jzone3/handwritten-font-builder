@@ -43,6 +43,11 @@ project save. Either side must accept files written by the other.
 
 ```
 A-Z  a-z  0-9  . , ! ? ' " - _ ( ) [ ] { } / \ : ; @ # $ % & * + = < > ~ ^ | `
+
+The website only asks people to draw the opening `( [ { <`; when `) ] } >` are missing from a file it mirrors
+the opener left-to-right. A file that does contain them is used as-is. Curly quotes (`‘ ’ “ ”`), dashes
+(`‐ – — −`) and `·` are derived from `' " - .` at font-build time and are never stored. `~ ^ | \`` are
+offered last as optional.
 ```
 
 A font can be exported as soon as at least one glyph is drawn; missing glyphs fall back to the system font

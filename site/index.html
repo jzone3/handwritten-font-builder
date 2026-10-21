@@ -18,6 +18,7 @@
     <a href="#start" data-nav="start">Start</a>
     <a href="#draw" data-nav="draw">Write</a>
     <a href="#done" data-nav="done">Your font</a>
+    <a href="/fonts">All fonts</a>
     <a href="https://github.com/jzone3/handwritten-font-builder">Source</a>
   </nav>
 </header>
@@ -123,7 +124,7 @@ He chortled in his joy.
 Did gyre and gimble in the wabe:
 All mimsy were the borogoves,
 And the mome raths outgrabe.</div>
-    <p class="small muted">You can type in the box to try your own words.</p>
+    <p class="small muted poem-tip">Tap into the poem and type to try your own words. Tap a letter to redraw it. <button id="redrawBtn" class="linkish" hidden></button></p>
     <div class="actions">
       <button id="downloadFont" class="primary">Download font (.otf)</button>
       <button id="backToDraw">← Keep writing</button>
@@ -131,6 +132,14 @@ And the mome raths outgrabe.</div>
       <button id="importBtn">Import strokes…</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
       <button id="resetBtn" class="danger">Start over</button>
+    </div>
+    <div class="share" id="shareBox" hidden>
+      <label class="small"><input type="checkbox" id="publishToggle" checked> Published: your font gets its own page, is listed on <a href="/fonts">All fonts</a>, and anyone can download it</label>
+      <div class="actions">
+        <a id="pageLink" class="button" href="#" target="_blank" rel="noopener">Open font page</a>
+        <button id="shareBtn">Share…</button>
+      </div>
+      <p class="small muted" id="publishStatus"></p>
     </div>
     <p class="small muted">Install the .otf like any font (double-click on Mac or Windows). It works in Pages, Word, Figma, Keynote, and on the web with <code>@font-face</code>.</p>
   </section>

@@ -1,7 +1,11 @@
 (function () {
   'use strict';
 
-  const CHARSET = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' + '.,!?\'"-_()[]{}/\\:;@#$%&*+=<>~^|`').split('');
+  // What we ask people to draw. ) ] } > are mirrored from ( [ { < by the font builder;
+  // curly quotes and dashes are derived from ' " -. The last few are optional.
+  const CHARSET = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' + '.,!?\'"-_([{/\\:;@#$%&*+=<~^|`').split('');
+  const OPTIONAL = new Set(['~', '^', '|', '`']);
+  const ACCEPTED = new Set(CHARSET.concat([')', ']', '}', '>']));  // files may still carry the closers
   const ASPECT = 1.6;
   const GUIDES = { cap: 0.20, xh: 0.46, base: 0.76 };
   const STORAGE_KEY = 'hfb.project.v1';
@@ -17,6 +21,8 @@
     versions: {},        // char -> int, bumps on edit (trace cache key)
     current: 0,
     fontName: 'My Handwriting',
+    publish: true,          // auto-publish on Finish; user can switch it off
+    pub: null,              // { id, token } once published
     thickness: 0.06,
     spacing: 0.06,
   };
@@ -28,7 +34,10 @@
 
   // ---------- persistence ----------
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ glyphs: state.glyphs, fontName: state.fontName, thickness: state.thickness, spacing: state.spacing, current: state.current })); } catch (e) {}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ glyphs: state.glyphs, fontName: state.fontName, thickness: state.thickness, spacing: state.spacing, current: state.current, publish: state.publish, pub: state.pub }));
+      if (state.pub) localStorage.setItem('hfb.pub.' + state.pub.id, state.pub.token);
+    } catch (e) {}
   }
   function load() {
     try {
@@ -37,6 +46,8 @@
       const d = JSON.parse(raw);
       if (d.glyphs) state.glyphs = d.glyphs;
       if (d.fontName) state.fontName = d.fontName;
+      if (typeof d.publish === 'boolean') state.publish = d.publish;
+      if (d.pub && d.pub.id && d.pub.token) state.pub = d.pub;
       if (d.thickness) state.thickness = d.thickness;
       if (d.spacing != null) state.spacing = d.spacing;
       if (Number.isInteger(d.current)) state.current = Math.min(Math.max(d.current, 0), CHARSET.length - 1);
@@ -188,7 +199,8 @@
     if (/[A-Z]/.test(ch)) return 'Draw the capital ' + ch;
     if (/[a-z]/.test(ch)) return 'Draw the lowercase ' + ch;
     if (/[0-9]/.test(ch)) return 'Draw the digit ' + ch;
-    return 'Draw the ' + (NAMES[ch] || ch);
+    if ('([{<'.includes(ch)) return 'Draw the ' + NAMES[ch] + ' (the closing one is mirrored for you)';
+    return 'Draw the ' + (NAMES[ch] || ch) + (OPTIONAL.has(ch) ? ' (optional)' : '');
   }
   function updateCurrent() {
     const ch = CHARSET[state.current];
@@ -251,7 +263,7 @@
     grid.innerHTML = '';
     CHARSET.forEach((ch, i) => {
       const b = document.createElement('button');
-      b.className = 'glyph-cell'; b.type = 'button'; b.title = hintFor(ch);
+      b.className = 'glyph-cell' + (OPTIONAL.has(ch) ? ' optional' : ''); b.type = 'button'; b.title = hintFor(ch) + (OPTIONAL.has(ch) ? ' (optional)' : '');
       b.innerHTML = '<span class="lbl"></span><canvas></canvas>';
       b.querySelector('.lbl').textContent = ch;
       b.addEventListener('click', () => goTo(i));
@@ -304,7 +316,7 @@
   async function rebuild() {
     const n = Object.keys(state.glyphs).length;
     if (!n) {
-      currentFont = null;
+      currentFont = null; updateShareBox();
       $('previewBox').style.fontFamily = '';
       status.textContent = 'Draw a letter to see it here.';
       return;
@@ -331,7 +343,77 @@
     const n2 = font.glyphs.length - 2;
     status.textContent = n2 + ' of ' + CHARSET.length + ' letters drawn · ' + Math.round(buf.byteLength / 1024) + ' KB' + (n2 < CHARSET.length ? ' · missing letters show in a plain font' : '');
     if (traceCache.size > 400) traceCache.clear();
+    if (!$('screen-done').hidden) schedulePublish(buf);
   }
+
+  // ---------- publish / share ----------
+  const shareBox = $('shareBox'), pubStatus = $('publishStatus');
+  let publishTimer = null, publishing = false, pendingBuf = null;
+  function b64(buf) { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+  function updateShareBox() {
+    shareBox.hidden = !Object.keys(state.glyphs).length;
+    $('publishToggle').checked = state.publish;
+    const has = !!state.pub;
+    $('pageLink').hidden = !has; $('shareBtn').hidden = !has;
+    if (has) $('pageLink').href = '/f/' + state.pub.id;
+    if (!state.publish && !has) pubStatus.textContent = 'Not published. Tick the box to get a link you can share.';
+  }
+  function schedulePublish(buf) {
+    pendingBuf = buf;
+    updateShareBox();
+    if (!state.publish) return;
+    clearTimeout(publishTimer);
+    publishTimer = setTimeout(publishNow, 1200);
+  }
+  async function publishNow() {
+    if (publishing || !pendingBuf || !state.publish) return;
+    publishing = true;
+    pubStatus.textContent = state.pub ? 'Saving…' : 'Publishing…';
+    const buf = pendingBuf; pendingBuf = null;
+    const body = { name: state.fontName, strokes: JSON.parse(projectJSON()), otf: b64(buf), published: true };
+    if (state.pub) { body.id = state.pub.id; body.token = state.pub.token; }
+    try {
+      let r = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if ((r.status === 403 || r.status === 404) && state.pub) {
+        // Our copy was deleted or the token is stale: publish fresh.
+        state.pub = null; delete body.id; delete body.token;
+        r = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const m = await r.json();
+      if (m.token) state.pub = { id: m.id, token: m.token };
+      save();
+      updateShareBox();
+      pubStatus.innerHTML = '';
+      const link = document.createElement('a'); link.href = '/f/' + m.id; link.target = '_blank'; link.rel = 'noopener'; link.className = 'share-url'; link.textContent = location.origin + '/f/' + m.id;
+      pubStatus.append('Your font page: ', link, ' · ' + m.downloads + ' download' + (m.downloads === 1 ? '' : 's'));
+    } catch (err) {
+      console.error(err);
+      pubStatus.textContent = 'Could not publish (' + err.message + '). Your font still works locally.';
+    } finally {
+      publishing = false;
+      if (pendingBuf) schedulePublish(pendingBuf);
+    }
+  }
+  $('publishToggle').addEventListener('change', async (e) => {
+    state.publish = e.target.checked; save();
+    if (state.publish) { if (currentFont) schedulePublish(currentFont.toArrayBuffer()); }
+    else if (state.pub) {
+      pubStatus.textContent = 'Unpublishing…';
+      try {
+        const r = await fetch('/api/font', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: state.pub.id, token: state.pub.token, published: false }) });
+        pubStatus.textContent = r.ok ? 'Unpublished. The page still opens for people who have the link; delete it from the font page if you want it gone.' : 'Could not unpublish.';
+      } catch (err) { pubStatus.textContent = 'Could not unpublish.'; }
+    }
+    updateShareBox();
+  });
+  $('shareBtn').addEventListener('click', async () => {
+    if (!state.pub) return;
+    const url = location.origin + '/f/' + state.pub.id;
+    const data = { title: state.fontName, text: 'A font made from my handwriting', url };
+    if (navigator.share) { try { await navigator.share(data); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(url); $('shareBtn').textContent = 'Link copied'; setTimeout(() => $('shareBtn').textContent = 'Share…', 1500); } catch (e) { prompt('Copy this link', url); }
+  });
 
   function afterEdit(ch) {
     renderThumb(ch);
@@ -349,6 +431,7 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
   $('downloadFont').addEventListener('click', () => {
+    if (state.pub && state.publish && !pendingBuf && !publishing) { location.href = '/api/download?id=' + state.pub.id; return; }
     const font = FontBuild.buildFont(state.glyphs, { name: state.fontName, thickness: state.thickness, spacing: state.spacing, traceCache, versions: state.versions });
     downloadBlob(new Blob([font.toArrayBuffer()], { type: 'font/otf' }), slug(state.fontName) + '.otf');
   });
@@ -373,7 +456,7 @@
     if (!d || d.format !== 'handwritten-font-strokes' || typeof d.glyphs !== 'object') throw new Error('Expected format "handwritten-font-strokes".');
     let count = 0;
     for (const [ch, strokes] of Object.entries(d.glyphs)) {
-      if (!CHARSET.includes(ch) || !Array.isArray(strokes)) continue;
+      if (!ACCEPTED.has(ch) || !Array.isArray(strokes)) continue;
       const clean = strokes.filter(s => Array.isArray(s) && s.length).map(s => s.filter(p => Array.isArray(p) && p.length >= 2 && isFinite(p[0]) && isFinite(p[1])).map(p => [+p[0], +p[1], p.length > 2 ? +p[2] : 0])).filter(s => s.length);
       if (!clean.length) continue;
       state.glyphs[ch] = clean; bump(ch); count++;
@@ -397,7 +480,7 @@
 
   $('resetBtn').addEventListener('click', () => {
     if (!confirm('Erase every letter and start over?')) return;
-    state.glyphs = {}; state.versions = {}; state.current = 0; traceCache.clear();
+    state.glyphs = {}; state.versions = {}; state.current = 0; state.pub = null; traceCache.clear();
     renderAllThumbs(); updateCurrent(); save(); scheduleBuild();
     showScreen('draw');
   });
@@ -419,6 +502,24 @@
   window.addEventListener('hashchange', () => showScreen(location.hash.slice(1) || 'start', false));
   document.querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); showScreen(a.dataset.nav); }));
   $('finishBtn').addEventListener('click', () => showScreen('done'));
+  // Tap a letter in the poem → offer to redraw it.
+  const redrawBtn = $('redrawBtn');
+  function caretChar() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0);
+    if (!$('previewBox').contains(r.startContainer) || r.startContainer.nodeType !== 3) return null;
+    const t = r.startContainer.textContent;
+    const ch = t[r.startOffset] || t[r.startOffset - 1];
+    return ch && CHARSET.includes(ch) ? ch : null;
+  }
+  function updateRedraw() {
+    const ch = caretChar();
+    redrawBtn.hidden = !ch;
+    if (ch) { redrawBtn.dataset.ch = ch; redrawBtn.textContent = (state.glyphs[ch] ? 'Redraw ' : 'Draw ') + '“' + ch + '” →'; }
+  }
+  document.addEventListener('selectionchange', () => { if (!$('screen-done').hidden) updateRedraw(); });
+  redrawBtn.addEventListener('click', () => { const i = CHARSET.indexOf(redrawBtn.dataset.ch); if (i >= 0) { state.current = i; showScreen('draw'); } });
   $('backToDraw').addEventListener('click', () => showScreen('draw'));
   $('importLink').addEventListener('click', (e) => { e.preventDefault(); $('importFile').click(); });
 

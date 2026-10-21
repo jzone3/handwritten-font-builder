@@ -40,9 +40,13 @@
     glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
     glyphs.push(new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: Math.round(0.28 * BOX), path: new opentype.Path() }));
 
-    const chars = Object.keys(glyphData).filter(c => glyphData[c] && glyphData[c].length && c !== ' ');
+    const data = Object.assign({}, glyphData);
+    for (const [closer, opener] of Object.entries(MIRROR)) {
+      if ((!data[closer] || !data[closer].length) && data[opener] && data[opener].length) data[closer] = mirrorX(data[opener]);
+    }
+    const chars = Object.keys(data).filter(c => data[c] && data[c].length && c !== ' ');
     for (const ch of chars) {
-      const strokes = glyphData[ch];
+      const strokes = data[ch];
       const cacheKey = cache ? ch + '|' + thickness + '|' + (opts.versions ? opts.versions[ch] : JSON.stringify(strokes).length) : null;
       let traced = cache && cache.get(cacheKey);
       if (!traced) {
@@ -78,6 +82,15 @@
 
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclam', '?': 'question', "'": 'quotesingle', '"': 'quotedbl', '-': 'hyphen', '_': 'underscore', '(': 'parenleft', ')': 'parenright', '[': 'bracketleft', ']': 'bracketright', '{': 'braceleft', '}': 'braceright', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at', '#': 'numbersign', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equal', '<': 'less', '>': 'greater', '~': 'asciitilde', '^': 'asciicircum', '|': 'bar', '`': 'grave' };
   const DIGITS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  // Closing brackets are the opening ones flipped left-to-right (unless the user drew them).
+  const MIRROR = { ')': '(', ']': '[', '}': '{', '>': '<' };
+  function mirrorX(strokes) {
+    let minX = Infinity, maxX = -Infinity;
+    for (const st of strokes) for (const p of st) { if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; }
+    const sum = minX + maxX;
+    return strokes.map(st => st.map(p => [sum - p[0], p[1], p[2]]));
+  }
+
   // Typographic characters nobody draws, mapped onto the plain ones they did draw.
   const ALIASES = {
     "'": [0x2018, 0x2019],       // ‘ ’
