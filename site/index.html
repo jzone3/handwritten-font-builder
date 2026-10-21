@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Handwritten Font Builder</title>
+<meta name="description" content="Write a few letters, get a real font file. Draw in the browser, or write on your Mac trackpad with the free Mac app.">
+<meta property="og:title" content="Handwritten Font Builder">
+<meta property="og:description" content="Write a few letters, get a real font file. Draw in the browser, or write on your Mac trackpad with the free Mac app.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#start">Handwritten Font Builder</a>
+  <nav>
+    <a href="#start" data-nav="start">Start</a>
+    <a href="#draw" data-nav="draw">Write</a>
+    <a href="#done" data-nav="done">Your font</a>
+    <a href="/fonts">All fonts</a>
+    <a href="https://github.com/jzone3/handwritten-font-builder">Source</a>
+  </nav>
+</header>
+
+<main>
+  <!-- 1. Start -->
+  <section class="screen screen-start" id="screen-start">
+    <h1 class="hand">Make a font out of your own handwriting.</h1>
+    <p class="hand lead">You write each letter once, in a box on the screen. When you're done you get a real font file you can install anywhere: Pages, Word, Figma, your website. Your font gets its own page here too, so you can share it (or switch that off).</p>
+
+    <div class="device" id="device">
+      <p class="device-line" id="deviceLine">Checking what you're on…</p>
+      <div class="actions" id="deviceActions"></div>
+      <p class="small muted" id="deviceNote"></p>
+    </div>
+
+    <p class="small muted">Already have a strokes file from the Mac app? <a href="#" id="importLink">Import it</a> or drop it anywhere on this page.</p>
+
+    <div class="ticker" id="ticker" hidden>
+      <div class="ticker-head"><span class="live-dot"></span> New fonts <a href="/fonts" class="small muted">All fonts →</a></div>
+      <div class="ticker-track" id="tickerTrack"></div>
+    </div>
+  </section>
+
+  <!-- 2. Write -->
+  <section class="screen screen-draw" id="screen-draw" hidden>
+    <div class="builder">
+      <div class="pad-col">
+        <div class="pad-head">
+          <div class="pad-title">
+            <span class="pad-char" id="padChar">A</span>
+            <span class="pad-hint" id="padHint">Draw the capital A</span>
+          </div>
+          <div class="pad-tools">
+            <button id="undoBtn" title="Undo (⌘Z)">Undo</button>
+            <button id="clearBtn" title="Clear">Clear</button>
+            <button id="prevBtn" title="Previous (←)">←</button>
+            <button id="nextBtn" class="primary" title="Next (→ / Enter)">Next →</button>
+          </div>
+        </div>
+        <div class="pad-wrap">
+          <canvas id="pad"></canvas>
+        </div>
+        <p class="pad-tip pointer-fine">Click and drag to draw, or hold <kbd>Space</kbd> and move to draw without clicking. On a Mac, the <a href="#start" data-nav="start">app</a> lets you write on the trackpad with a finger.</p>
+        <p class="pad-tip pointer-coarse">Draw with your finger. Sit the letter on the dark baseline; tails like g and y go below it.</p>
+      </div>
+
+      <div class="grid-col">
+        <div class="grid-head">
+          <span id="progress">0 / 0 drawn</span>
+          <label class="small"><input type="checkbox" id="autoAdvance" checked> Next after each letter</label>
+          <button id="finishBtn" class="primary" disabled>Finish →</button>
+        </div>
+        <div class="glyph-grid" id="glyphGrid"></div>
+        <p class="small muted grid-note">You don't have to draw everything. Any letter you skip falls back to a plain font.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Your font -->
+  <section class="screen screen-done" id="screen-done" hidden>
+    <div class="preview-head">
+      <div>
+        <h2>Your font</h2>
+        <p class="preview-status" id="previewStatus">Draw a letter to see it here.</p>
+      </div>
+      <div class="controls">
+        <label>Name <input id="fontName" type="text" value="My Handwriting" maxlength="40"></label>
+        <label>Thickness <input id="thickness" type="range" min="0.02" max="0.10" step="0.005" value="0.06"></label>
+        <label>Spacing <input id="spacing" type="range" min="0" max="0.2" step="0.01" value="0.06"></label>
+        <label>Size <input id="previewSize" type="range" min="16" max="72" step="1" value="30"></label>
+      </div>
+    </div>
+    <div class="preview-box" id="previewBox" contenteditable="true" spellcheck="false">Jabberwocky
+by Lewis Carroll
+
+’Twas brillig, and the slithy toves
+Did gyre and gimble in the wabe:
+All mimsy were the borogoves,
+And the mome raths outgrabe.
+
+“Beware the Jabberwock, my son!
+The jaws that bite, the claws that catch!
+Beware the Jubjub bird, and shun
+The frumious Bandersnatch!”
+
+He took his vorpal sword in hand;
+Long time the manxome foe he sought—
+So rested he by the Tumtum tree
+And stood awhile in thought.
+
+And, as in uffish thought he stood,
+The Jabberwock, with eyes of flame,
+Came whiffling through the tulgey wood,
+And burbled as it came!
+
+One, two! One, two! And through and through
+The vorpal blade went snicker-snack!
+He left it dead, and with its head
+He went galumphing back.
+
+“And hast thou slain the Jabberwock?
+Come to my arms, my beamish boy!
+O frabjous day! Callooh! Callay!”
+He chortled in his joy.
+
+’Twas brillig, and the slithy toves
+Did gyre and gimble in the wabe:
+All mimsy were the borogoves,
+And the mome raths outgrabe.</div>
+    <p class="small muted">Tap into the poem and type to try your own words.</p>
+    <div class="actions">
+      <button id="downloadFont" class="primary">Download font (.otf)</button>
+      <button id="backToDraw">← Keep writing</button>
+      <button id="saveProject">Save strokes (.json)</button>
+      <button id="importBtn">Import strokes…</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button id="resetBtn" class="danger">Start over</button>
+    </div>
+    <div class="share" id="shareBox" hidden>
+      <label class="small"><input type="checkbox" id="publishToggle" checked> Published: your font gets its own page, is listed on <a href="/fonts">All fonts</a>, and anyone can download it</label>
+      <div class="actions">
+        <a id="pageLink" class="button" href="#" target="_blank" rel="noopener">Open font page</a>
+        <button id="shareBtn">Share…</button>
+      </div>
+      <p class="small muted" id="publishStatus"></p>
+    </div>
+    <p class="small muted">Install the .otf like any font (double-click on Mac or Windows). It works in Pages, Word, Figma, Keynote, and on the web with <code>@font-face</code>.</p>
+  </section>
+</main>
+
+<footer>
+  <span>Made by <a href="https://x.com/imjaredz">@imjaredz</a>, built with <a href="https://devin.ai">Devin</a>. Inspired by <a href="https://x.com/ivanleomk/status/2112802990482657770">Ivan Leo's handwriting font</a>. <a href="https://github.com/jzone3/handwritten-font-builder">Open source</a>.</span>
+</footer>
+
+<div class="drop-overlay" id="dropOverlay">Drop your strokes file to import</div>
+
+<script src="/vendor/opentype.min.js"></script>
+<script src="/tracer.js"></script>
+<script src="/fontbuild.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
