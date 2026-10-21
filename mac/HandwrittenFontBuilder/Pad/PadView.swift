@@ -43,6 +43,7 @@ final class PadView: NSView {
     private var lastTouchTime: TimeInterval = 0
     private var keyObserver: NSObjectProtocol?
     private var clickMonitor: Any?
+    private var menuObserver: NSObjectProtocol?
     private var mouseDetached = false
 
     var isStrokeInProgress: Bool { !inProgress.isEmpty }
@@ -58,6 +59,7 @@ final class PadView: NSView {
 
     deinit {
         if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+        if let menuObserver { NotificationCenter.default.removeObserver(menuObserver) }
         restoreCursor()
     }
 
@@ -293,6 +295,10 @@ final class PadView: NSView {
             if !self.boxRect.contains(p) { self.exitWritingMode() }
             return event
         }
+        // Opening any menu shows the cursor again and the click monitor never sees menu-bar clicks, so treat it as a click outside the box.
+        menuObserver = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.exitWritingMode()
+        }
         Self.log.info("writing mode on")
         onWritingModeChanged?(true)
     }
@@ -302,6 +308,8 @@ final class PadView: NSView {
         isWriting = false
         if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
         clickMonitor = nil
+        if let menuObserver { NotificationCenter.default.removeObserver(menuObserver) }
+        menuObserver = nil
         restoreCursor()
         Self.log.info("writing mode off")
         onWritingModeChanged?(false)

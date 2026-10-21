@@ -42,10 +42,10 @@ project save. Either side must accept files written by the other.
 ## Character set (both apps offer these, in this order)
 
 ```
-A-Z  a-z  0-9  . , ! ? ' " - _ ( ) [ ] { } / \ : ; @ # $ % & * + = < > ~ ^ | `
+A-Z  a-z  0-9  . , ! ? ' " - _ ( [ { / \ : ; @ # $ % & * + = < ~ ^ | `
 
-The website only asks people to draw the opening `( [ { <`; when `) ] } >` are missing from a file it mirrors
-the opener left-to-right. A file that does contain them is used as-is. Curly quotes (`‘ ’ “ ”`), dashes
+That is 90 glyphs. Neither app asks for `) ] } >`; the font builder mirrors the opener left-to-right when they
+are missing from a file. A file that does contain them is used as-is. Curly quotes (`‘ ’ “ ”`), dashes
 (`‐ – — −`) and `·` are derived from `' " - .` at font-build time and are never stored.
 ```
 
