@@ -40,9 +40,9 @@ struct HandwrittenFontBuilderApp: App {
                 Button("Previous Glyph") { project.previous() }.keyboardShortcut(.leftArrow, modifiers: [])
                 Button("Next Glyph") { project.next() }.keyboardShortcut(.rightArrow, modifiers: [])
                 Divider()
-                Button(project.isWriting ? "Stop Writing" : "Write with Trackpad") { project.isWriting.toggle() }
+                Button(project.isWriting ? "Exit Trackpad Mode" : "Enter Trackpad Mode") { project.isWriting.toggle() }
                     .keyboardShortcut("t")
-                    .help("Or click in the box to start, Esc to stop")
+                    .help("Fingers on the trackpad draw while this is on; Esc turns it off")
                 #if DEBUG
                 Divider()
                 Button("Simulate Trackpad Stroke (Debug)") { project.pad?.simulateStroke() }.keyboardShortcut("t", modifiers: [.command, .shift])

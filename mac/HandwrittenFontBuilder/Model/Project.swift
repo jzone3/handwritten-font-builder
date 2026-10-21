@@ -9,7 +9,7 @@ final class Project: ObservableObject {
     @Published var fontName: String { didSet { if fontName != oldValue { scheduleAutosave() } } }
     @Published private(set) var glyphs: [Character: [Stroke]] = [:]
     @Published var currentIndex: Int { didSet { UserDefaults.standard.set(currentIndex, forKey: Keys.currentIndex) } }
-    /// Writing mode: cursor hidden and parked over the pad so every trackpad touch reaches it (see PadView).
+    /// Trackpad mode: cursor hidden and parked over the pad so every trackpad touch reaches it; off = mouse mode (see PadView).
     @Published var isWriting = false
     /// True for a moment after each trackpad touch — the "it works" light in the control bar.
     @Published private(set) var trackpadActive = false
