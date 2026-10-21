@@ -71,11 +71,15 @@ struct GlyphThumbnail: View {
 
     var body: some View {
         Canvas { context, size in
-            let scale = min(size.height, size.width / aspect)
-            let box = CGRect(x: (size.width - scale * aspect) / 2, y: (size.height - scale) / 2, width: scale * aspect, height: scale)
-            let lineWidth = max(1, scale * 0.045)
+            let aspect = CGFloat(aspect)
+            let scale: CGFloat = min(size.height, size.width / aspect)
+            let boxWidth: CGFloat = scale * aspect
+            let box = CGRect(x: (size.width - boxWidth) / 2, y: (size.height - scale) / 2, width: boxWidth, height: scale)
+            let lineWidth: CGFloat = max(1, scale * 0.045)
             for stroke in strokes {
-                let pts = StrokeGeometry.smoothed(stroke).map { CGPoint(x: box.minX + $0.x * scale, y: box.minY + $0.y * scale) }
+                let pts: [CGPoint] = StrokeGeometry.smoothed(stroke).map { p in
+                    CGPoint(x: box.minX + CGFloat(p.x) * scale, y: box.minY + CGFloat(p.y) * scale)
+                }
                 guard let first = pts.first else { continue }
                 if pts.count == 1 {
                     context.fill(Path(ellipseIn: CGRect(x: first.x - lineWidth / 2, y: first.y - lineWidth / 2,
