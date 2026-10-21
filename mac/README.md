@@ -18,9 +18,10 @@ xcodebuild -project HandwrittenFontBuilder.xcodeproj -scheme HandwrittenFontBuil
 
 `Pad/PadView.swift` opts into `NSTouch` (`allowedTouchTypes = [.indirect]`) and maps `touch.normalizedPosition` to the glyph box:
 pad height = box height, `x = nx * (deviceWidth / deviceHeight)`, `y = 1 - ny`. One touch identity is tracked at a time; a tap is a one-point stroke.
-"Write with Trackpad" hides the cursor, parks it over the pad and decouples it from the trackpad
-(`CGAssociateMouseAndMouseCursorPosition(false)`), so a finger can roam the whole pad without the cursor leaving the view. Everything is restored on Esc,
-when the window resigns key, or on quit. Mouse drawing in the box always works as a fallback. The Debug build has Glyph → "Simulate Trackpad Stroke"
+Touches are ignored until "Enter Trackpad Mode" (bottom-left button, ⌘T) is on: it hides the cursor, parks it over the pad and decouples it from
+the trackpad (`CGAssociateMouseAndMouseCursorPosition(false)`) while a finger is down, so a finger can roam the whole pad without the cursor leaving
+the view. Esc, the button, a click outside the box, opening a menu, the window resigning key, or quitting all go back to mouse mode, where the
+trackpad only moves the pointer and click-drag in the box draws. The Debug build has Glyph → "Simulate Trackpad Stroke"
 (⇧⌘T), which feeds synthetic touches through the same mapping code.
 
 ## Release

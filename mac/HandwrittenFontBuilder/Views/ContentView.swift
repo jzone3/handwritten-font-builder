@@ -31,23 +31,27 @@ struct ContentView: View {
     }
 }
 
-/// Undo / Clear / Previous / Next plus the writing-mode switch and the trackpad activity light.
+/// Trackpad-mode switch (bottom-left), the trackpad activity light, and Undo / Clear / Previous / Next.
 struct ControlBar: View {
     @EnvironmentObject private var project: Project
 
     var body: some View {
         HStack(spacing: 10) {
             if project.isWriting {
-                Button("Stop Writing") { project.isWriting = false }
+                shortcutButton("Exit Trackpad Mode", key: "esc") { project.isWriting = false }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.black)
                     .keyboardShortcut(.escape, modifiers: [])
-                Text("esc or click outside the box")
+                Text("Write on the trackpad with one finger")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Click in the box, then write on the trackpad")
-                    .font(.callout.weight(.medium))
+                shortcutButton("Enter Trackpad Mode", key: "⌘T") { project.isWriting = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.black)
+                Text("Mouse mode: click and drag in the box to draw")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 6) {
@@ -90,7 +94,7 @@ struct ControlBar: View {
                 Text(title)
                 Text(key)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
+                    .opacity(0.6)
             }
         }
     }
