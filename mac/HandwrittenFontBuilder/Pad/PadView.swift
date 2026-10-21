@@ -13,12 +13,12 @@ import os
 /// 2. **Mouse / pointer** inside the box as a fallback (click-drag). Mouse events that follow a trackpad touch within
 ///    a moment (the tap-to-click of the same finger) are swallowed so a touch dot does not become two dots.
 ///
-/// **Writing mode.** Touches only arrive while the cursor is over this view and the window is key. While writing we
-/// hide the cursor, detach it from the trackpad (`CGAssociateMouseAndMouseCursorPosition(false)`) and warp it into
-/// the view, so the finger can roam the whole pad without the pointer wandering off and clicking things. As a belt and
-/// braces the cursor is re-warped on every touch begin as well, in case a system still moves it. Everything is
-/// restored when writing mode ends, the window resigns key, the view leaves the window or the app quits. No
-/// Accessibility or other permission is needed for any of this. Clicks that still reach the view are ignored.
+/// **Writing mode.** Touches only arrive while the cursor is over this view and the window is key. Writing mode starts
+/// with a click in the box (or ⌘T) and ends with Esc, a click anywhere outside the box, or the window losing focus.
+/// While writing the cursor is hidden and parked over the box. The pointer is detached from the trackpad
+/// (`CGAssociateMouseAndMouseCursorPosition(false)`) only while a finger is down, so between strokes the trackpad
+/// still moves the pointer and the buttons stay reachable. Everything is restored when writing mode ends, the window
+/// resigns key, the view leaves the window or the app quits. No Accessibility or other permission is needed.
 final class PadView: NSView {
     private static let log = Logger(subsystem: "com.jzone3.HandwrittenFontBuilder", category: "trackpad")
 
@@ -42,6 +42,8 @@ final class PadView: NSView {
     private var mouseStroke = false
     private var lastTouchTime: TimeInterval = 0
     private var keyObserver: NSObjectProtocol?
+    private var clickMonitor: Any?
+    private var mouseDetached = false
 
     var isStrokeInProgress: Bool { !inProgress.isEmpty }
 
@@ -54,7 +56,10 @@ final class PadView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    deinit { restoreCursor() }
+    deinit {
+        if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+        restoreCursor()
+    }
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -200,7 +205,7 @@ final class PadView: NSView {
         case .began:
             guard activeTouch == nil else { return }  // a second finger: ignore it
             activeTouch = identity
-            if isWriting { warpCursorIntoView() }
+            if isWriting { detachMouse(); warpCursorIntoView() }
             beginStroke(x: x, y: y, at: timestamp)
         case .moved:
             guard let active = activeTouch, identity.isEqual(active) else { return }
@@ -210,10 +215,12 @@ final class PadView: NSView {
             activeTouch = nil
             continueStroke(x: x, y: y, at: timestamp)
             endStroke()
+            reattachMouse()
         case .cancelled:
             guard let active = activeTouch, identity.isEqual(active) else { return }
             activeTouch = nil
             cancelStroke()
+            reattachMouse()
         }
     }
 
@@ -221,25 +228,38 @@ final class PadView: NSView {
 
     private var recentTouch: Bool { ProcessInfo.processInfo.systemUptime - lastTouchTime < 0.75 }
 
+    private var pendingClick: CGPoint?
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         // In writing mode the trackpad is the pen: a tap-to-click must not draw or move anything.
         guard !isWriting, !recentTouch, activeTouch == nil else { return }
-        let box = boxRect
         let p = convert(event.locationInWindow, from: nil)
-        guard box.insetBy(dx: -40, dy: -40).contains(p) else { return }
-        let g = glyphPoint(fromView: p, in: box)
-        mouseStroke = true
-        beginStroke(x: g.x, y: g.y, at: event.timestamp)
+        guard boxRect.contains(p) else { return }
+        // A plain click starts writing mode; a click-drag is the mouse fallback and draws a stroke.
+        pendingClick = p
     }
 
     override func mouseDragged(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        if let start = pendingClick {
+            guard hypot(p.x - start.x, p.y - start.y) > 4 else { return }
+            pendingClick = nil
+            mouseStroke = true
+            let g = glyphPoint(fromView: start, in: boxRect)
+            beginStroke(x: g.x, y: g.y, at: event.timestamp)
+        }
         guard mouseStroke else { return }
-        let g = glyphPoint(fromView: convert(event.locationInWindow, from: nil), in: boxRect)
+        let g = glyphPoint(fromView: p, in: boxRect)
         continueStroke(x: g.x, y: g.y, at: event.timestamp)
     }
 
     override func mouseUp(with event: NSEvent) {
+        if pendingClick != nil {
+            pendingClick = nil
+            enterWritingMode()
+            return
+        }
         guard mouseStroke else { return }
         mouseStroke = false
         endStroke()
@@ -265,8 +285,14 @@ final class PadView: NSView {
         isWriting = true
         window?.makeFirstResponder(self)
         NSCursor.hide()
-        CGAssociateMouseAndMouseCursorPosition(0)
         warpCursorIntoView()
+        // Any click outside the box (a button, the glyph grid, the toolbar) ends writing mode and goes through as normal.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self, self.isWriting, event.window == self.window else { return event }
+            let p = self.convert(event.locationInWindow, from: nil)
+            if !self.boxRect.contains(p) { self.exitWritingMode() }
+            return event
+        }
         Self.log.info("writing mode on")
         onWritingModeChanged?(true)
     }
@@ -274,13 +300,30 @@ final class PadView: NSView {
     func exitWritingMode() {
         guard isWriting else { return }
         isWriting = false
+        if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+        clickMonitor = nil
         restoreCursor()
         Self.log.info("writing mode off")
         onWritingModeChanged?(false)
     }
 
-    /// Safe to call any number of times; undoes exactly what `enterWritingMode` did.
+    /// Pointer stops following the finger for the duration of a stroke, so writing never drags the cursor onto a button.
+    private func detachMouse() {
+        guard !mouseDetached else { return }
+        mouseDetached = true
+        CGAssociateMouseAndMouseCursorPosition(0)
+    }
+
+    private func reattachMouse() {
+        guard mouseDetached else { return }
+        mouseDetached = false
+        CGAssociateMouseAndMouseCursorPosition(1)
+        if isWriting { warpCursorIntoView() }
+    }
+
+    /// Safe to call any number of times; undoes exactly what `enterWritingMode` / `detachMouse` did.
     private func restoreCursor() {
+        mouseDetached = false
         CGAssociateMouseAndMouseCursorPosition(1)
         NSCursor.unhide()
     }

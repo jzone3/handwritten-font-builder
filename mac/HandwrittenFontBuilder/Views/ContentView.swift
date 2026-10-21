@@ -37,13 +37,18 @@ struct ControlBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(project.isWriting ? "Stop Writing (esc)" : "Write with Trackpad") {
-                project.isWriting.toggle()
-                project.focusPad()
+            if project.isWriting {
+                Button("Stop Writing") { project.isWriting = false }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.black)
+                    .keyboardShortcut(.escape, modifiers: [])
+                Text("esc or click outside the box")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Click in the box, then write on the trackpad")
+                    .font(.callout.weight(.medium))
             }
-            .buttonStyle(.borderedProminent)
-            .tint(project.isWriting ? Color.black : Color.accentColor)
-            .help("Hides the cursor and parks it over the pad so your finger can write anywhere on the trackpad. Esc or ⌘T to stop.")
 
             HStack(spacing: 6) {
                 Circle()
@@ -64,20 +69,29 @@ struct ControlBar: View {
 
             Spacer()
 
-            Button("Undo") { act { project.undo() } }.disabled(!project.canUndo).help("⌘Z")
-            Button("Clear") { act { project.clear() } }.disabled(project.currentStrokes.isEmpty).help("⌫")
-            Button("Previous") { act { project.previous() } }.disabled(project.currentIndex == 0).help("←")
-            Button(project.currentStrokes.isEmpty ? "Skip" : "Next") { act { project.next() } }
+            shortcutButton("Undo", key: "⌘Z", action: project.undo).disabled(!project.canUndo)
+            shortcutButton("Clear", key: "⌫", action: project.clear).disabled(project.currentStrokes.isEmpty)
+            shortcutButton("Previous", key: "←", action: project.previous).disabled(project.currentIndex == 0)
+            shortcutButton(project.currentStrokes.isEmpty ? "Skip" : "Next", key: "→", action: project.next)
                 .disabled(project.currentIndex == GlyphSet.characters.count - 1)
-                .help("Space, Return or →")
         }
         .controlSize(.large)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
 
-    private func act(_ body: () -> Void) {
-        body()
-        project.focusPad()
+    /// A button with its key written on it, so the shortcuts are visible instead of hidden in tooltips.
+    private func shortcutButton(_ title: String, key: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            project.focusPad()
+        } label: {
+            HStack(spacing: 6) {
+                Text(title)
+                Text(key)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

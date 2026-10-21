@@ -37,11 +37,12 @@ struct HandwrittenFontBuilderApp: App {
                 Button("Clear Glyph") { project.clear() }.keyboardShortcut(.delete).disabled(project.currentStrokes.isEmpty)
             }
             CommandMenu("Glyph") {
-                Button("Previous Glyph") { project.previous() }.keyboardShortcut("[")
-                Button("Next Glyph") { project.next() }.keyboardShortcut("]")
+                Button("Previous Glyph") { project.previous() }.keyboardShortcut(.leftArrow, modifiers: [])
+                Button("Next Glyph") { project.next() }.keyboardShortcut(.rightArrow, modifiers: [])
                 Divider()
                 Button(project.isWriting ? "Stop Writing" : "Write with Trackpad") { project.isWriting.toggle() }
                     .keyboardShortcut("t")
+                    .help("Or click in the box to start, Esc to stop")
                 #if DEBUG
                 Divider()
                 Button("Simulate Trackpad Stroke (Debug)") { project.pad?.simulateStroke() }.keyboardShortcut("t", modifiers: [.command, .shift])
