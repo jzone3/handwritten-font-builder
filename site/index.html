@@ -36,6 +36,11 @@
     </div>
 
     <p class="small muted">Already have a strokes file from the Mac app? <a href="#" id="importLink">Import it</a> or drop it anywhere on this page.</p>
+
+    <div class="ticker" id="ticker" hidden>
+      <div class="ticker-head"><span class="live-dot"></span> New fonts <a href="/fonts" class="small muted">All fonts →</a></div>
+      <div class="ticker-track" id="tickerTrack"></div>
+    </div>
   </section>
 
   <!-- 2. Write -->
@@ -124,7 +129,7 @@ He chortled in his joy.
 Did gyre and gimble in the wabe:
 All mimsy were the borogoves,
 And the mome raths outgrabe.</div>
-    <p class="small muted poem-tip">Tap into the poem and type to try your own words. Tap a letter to redraw it. <button id="redrawBtn" class="linkish" hidden></button></p>
+    <p class="small muted">Tap into the poem and type to try your own words.</p>
     <div class="actions">
       <button id="downloadFont" class="primary">Download font (.otf)</button>
       <button id="backToDraw">← Keep writing</button>

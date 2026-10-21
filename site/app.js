@@ -2,9 +2,8 @@
   'use strict';
 
   // What we ask people to draw. ) ] } > are mirrored from ( [ { < by the font builder;
-  // curly quotes and dashes are derived from ' " -. The last few are optional.
+  // curly quotes and dashes are derived from ' " -.
   const CHARSET = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' + '.,!?\'"-_([{/\\:;@#$%&*+=<~^|`').split('');
-  const OPTIONAL = new Set(['~', '^', '|', '`']);
   const ACCEPTED = new Set(CHARSET.concat([')', ']', '}', '>']));  // files may still carry the closers
   const ASPECT = 1.6;
   const GUIDES = { cap: 0.20, xh: 0.46, base: 0.76 };
@@ -58,7 +57,9 @@
   function padSize() {
     const w = pad.clientWidth;
     const aspect = w < 520 ? 1.25 : ASPECT;
-    return { w, h: w / aspect };
+    // Keep the whole pad on screen on short viewports (phones in landscape).
+    const maxH = Math.max(160, window.innerHeight - 170);
+    return { w, h: Math.min(w / aspect, maxH) };
   }
   function resizePad() {
     const { w, h } = padSize();
@@ -200,7 +201,7 @@
     if (/[a-z]/.test(ch)) return 'Draw the lowercase ' + ch;
     if (/[0-9]/.test(ch)) return 'Draw the digit ' + ch;
     if ('([{<'.includes(ch)) return 'Draw the ' + NAMES[ch] + ' (the closing one is mirrored for you)';
-    return 'Draw the ' + (NAMES[ch] || ch) + (OPTIONAL.has(ch) ? ' (optional)' : '');
+    return 'Draw the ' + (NAMES[ch] || ch);
   }
   function updateCurrent() {
     const ch = CHARSET[state.current];
@@ -263,7 +264,7 @@
     grid.innerHTML = '';
     CHARSET.forEach((ch, i) => {
       const b = document.createElement('button');
-      b.className = 'glyph-cell' + (OPTIONAL.has(ch) ? ' optional' : ''); b.type = 'button'; b.title = hintFor(ch) + (OPTIONAL.has(ch) ? ' (optional)' : '');
+      b.className = 'glyph-cell'; b.type = 'button'; b.title = hintFor(ch);
       b.innerHTML = '<span class="lbl"></span><canvas></canvas>';
       b.querySelector('.lbl').textContent = ch;
       b.addEventListener('click', () => goTo(i));
@@ -494,7 +495,7 @@
     cancelAdvance();
     for (const s of SCREENS) $('screen-' + s).hidden = s !== name;
     document.querySelectorAll('nav a[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === name));
-    if (location.hash !== '#' + name) history[push === false ? 'replaceState' : 'pushState'](null, '', '#' + name);
+    if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
     window.scrollTo(0, 0);
     if (name === 'draw') { resizePad(); updateCurrent(); }
     if (name === 'done') { rebuild(); }
@@ -502,26 +503,36 @@
   window.addEventListener('hashchange', () => showScreen(location.hash.slice(1) || 'start', false));
   document.querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); showScreen(a.dataset.nav); }));
   $('finishBtn').addEventListener('click', () => showScreen('done'));
-  // Tap a letter in the poem → offer to redraw it.
-  const redrawBtn = $('redrawBtn');
-  function caretChar() {
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return null;
-    const r = sel.getRangeAt(0);
-    if (!$('previewBox').contains(r.startContainer) || r.startContainer.nodeType !== 3) return null;
-    const t = r.startContainer.textContent;
-    const ch = t[r.startOffset] || t[r.startOffset - 1];
-    return ch && CHARSET.includes(ch) ? ch : null;
-  }
-  function updateRedraw() {
-    const ch = caretChar();
-    redrawBtn.hidden = !ch;
-    if (ch) { redrawBtn.dataset.ch = ch; redrawBtn.textContent = (state.glyphs[ch] ? 'Redraw ' : 'Draw ') + '“' + ch + '” →'; }
-  }
-  document.addEventListener('selectionchange', () => { if (!$('screen-done').hidden) updateRedraw(); });
-  redrawBtn.addEventListener('click', () => { const i = CHARSET.indexOf(redrawBtn.dataset.ch); if (i >= 0) { state.current = i; showScreen('draw'); } });
   $('backToDraw').addEventListener('click', () => showScreen('draw'));
   $('importLink').addEventListener('click', (e) => { e.preventDefault(); $('importFile').click(); });
+
+  // Live ticker on the start screen: the newest fonts, each showing its creation time written in that font.
+  async function loadTicker() {
+    let fonts = [];
+    try { const r = await fetch('/api/fonts?sort=new'); if (r.ok) fonts = (await r.json()).fonts || []; } catch (e) {}
+    if (!fonts.length) return;
+    const track = $('tickerTrack');
+    const row = document.createElement('div'); row.className = 'ticker-row';
+    const ago = (iso) => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+    for (const f of fonts.slice(0, 20)) {
+      const card = document.createElement('a'); card.className = 'ticker-card'; card.href = '/f/' + f.id;
+      const t = document.createElement('div'); t.className = 'ticker-time';
+      let time;
+      try { time = new Date(f.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: f.tz || undefined }); } catch (e) { time = new Date(f.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+      t.textContent = time;
+      const where = document.createElement('div'); where.className = 'ticker-where';
+      const place = [f.city, f.region || (f.country && f.country !== 'US' ? f.country : null)].filter(Boolean).join(', ');
+      where.textContent = (place ? place + ' · ' : '') + ago(f.createdAt);
+      card.append(t, where); row.appendChild(card);
+      const fam = 'HFBT_' + f.id;
+      const face = new FontFace(fam, 'url(/api/file?id=' + f.id + '&kind=otf)');
+      face.load().then(() => { document.fonts.add(face); t.style.fontFamily = '"' + fam + '", cursive'; }).catch(() => {});
+    }
+    track.appendChild(row);
+    if (fonts.length > 3) track.appendChild(row.cloneNode(true));  // seamless loop
+    else row.style.animation = 'none';
+    $('ticker').hidden = false;
+  }
 
   function detectDevice() {
     const ua = navigator.userAgent || '';
@@ -548,7 +559,7 @@
     } else if (d === 'iphone' || d === 'ipad' || d === 'android') {
       line.textContent = 'Looks like you\'re on ' + (d === 'iphone' ? 'an iPhone' : d === 'ipad' ? 'an iPad' : 'an Android phone') + '. Draw the letters with your finger' + (d === 'ipad' ? ' or a Pencil' : '') + '; that works nicely.';
       acts.appendChild(btn('Start writing →', 'primary', start));
-      note.textContent = 'Turn the phone sideways for a bigger box.';
+      note.textContent = 'Sit each letter on the dark baseline; tails like g and y go below it.';
     } else {
       line.textContent = 'Looks like you\'re on ' + (d === 'windows' ? 'Windows' : 'a computer') + '. Draw with a mouse, trackpad, or touchscreen.';
       acts.appendChild(btn('Start writing →', 'primary', start));
@@ -578,6 +589,7 @@
   buildGrid();
   renderAllThumbs();
   setupStart();
+  loadTicker();
   const initial = location.hash.slice(1);
   showScreen(initial || (Object.keys(state.glyphs).length ? 'draw' : 'start'), false);
   scheduleBuild();

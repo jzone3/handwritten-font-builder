@@ -73,7 +73,7 @@ export async function readIndex() {
 
 export async function upsertIndex(meta) {
   const idx = await readIndex();
-  const entry = { id: meta.id, name: meta.name, glyphs: meta.glyphs, downloads: meta.downloads, createdAt: meta.createdAt, updatedAt: meta.updatedAt };
+  const entry = { id: meta.id, name: meta.name, glyphs: meta.glyphs, downloads: meta.downloads, createdAt: meta.createdAt, updatedAt: meta.updatedAt, city: meta.city, region: meta.region, country: meta.country, tz: meta.tz };
   idx.fonts = idx.fonts.filter(f => f.id !== meta.id);
   if (meta.published) idx.fonts.push(entry);
   idx.fonts.sort((a, b) => (b.downloads - a.downloads) || (b.updatedAt > a.updatedAt ? 1 : -1));

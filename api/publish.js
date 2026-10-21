@@ -31,6 +31,15 @@ export default async function handler(req, res) {
   meta.name = name;
   meta.glyphs = glyphCount;
   meta.updatedAt = now;
+  if (!meta.city) {
+    const city = decodeURIComponent(req.headers['x-vercel-ip-city'] || '');
+    const country = req.headers['x-vercel-ip-country'] || '';
+    const region = decodeURIComponent(req.headers['x-vercel-ip-country-region'] || '');
+    if (city) meta.city = city;
+    if (country) meta.country = country;
+    if (region && country === 'US') meta.region = region;
+    meta.tz = req.headers['x-vercel-ip-timezone'] || undefined;
+  }
   if (typeof body.published === 'boolean') meta.published = body.published;
 
   await Promise.all([
