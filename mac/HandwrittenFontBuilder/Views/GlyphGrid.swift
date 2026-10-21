@@ -50,7 +50,7 @@ struct GlyphCell: View {
             if strokes.isEmpty {
                 Text(String(character))
                     .font(.system(size: 16, weight: .regular, design: .default))
-                    .foregroundStyle(.secondary.opacity(0.7))
+                    .foregroundStyle(Color.secondary.opacity(0.7))
             } else {
                 GlyphThumbnail(strokes: strokes, aspect: aspect)
                     .padding(3)
