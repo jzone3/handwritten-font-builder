@@ -70,7 +70,10 @@ struct FontWebView: NSViewRepresentable {
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { showLoadError(error, in: webView) }
 
         private func showLoadError(_ error: Error, in webView: WKWebView) {
-            if (error as NSError).code == NSURLErrorCancelled { return }
+            let e = error as NSError
+            if e.code == NSURLErrorCancelled { return }
+            // "Frame load interrupted" (WebKitErrorDomain 102): the navigation became a download. The page is still there.
+            if e.domain == "WebKitErrorDomain" && e.code == 102 { return }
             let html = """
             <body style="font-family:-apple-system;padding:40px;color:#111"><h2>Couldn’t reach buildyourownfont.com</h2>
             <p>\(error.localizedDescription)</p><p>Check your connection and try again, or use File → Export Strokes… and import the file on the website later.</p></body>
