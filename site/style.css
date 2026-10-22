@@ -144,6 +144,8 @@ body.dragging .drop-overlay { display: flex; }
 .corner.left { left: 20px; }
 .corner.right { right: 20px; }
 .corner svg { flex: none; }
+/* The pills are fixed in the window corners; below ~1380px they would sit on the header's title/nav, so the header moves down a row. */
+@media (max-width: 1380px) { header.top { padding-top: 60px; } }
 @media (max-width: 640px) { .corner { top: 10px; height: 28px; font-size: 12px; } .corner.left { left: 10px; } .corner.right { right: 10px; } header.top { padding-top: 50px; } }
 
 /* Embedded in the Mac app: only the "Your font" screen, no site chrome. */
