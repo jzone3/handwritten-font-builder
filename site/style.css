@@ -145,3 +145,7 @@ body.dragging .drop-overlay { display: flex; }
 .corner.right { right: 20px; }
 .corner svg { flex: none; }
 @media (max-width: 640px) { .corner { top: 10px; height: 28px; font-size: 12px; } .corner.left { left: 10px; } .corner.right { right: 10px; } }
+
+/* Embedded in the Mac app: only the "Your font" screen, no site chrome. */
+body.embed header, body.embed .corner, body.embed #importBtn, body.embed #resetBtn, body.embed .grid-note { display: none !important; }
+body.embed main { padding-top: 12px; }
