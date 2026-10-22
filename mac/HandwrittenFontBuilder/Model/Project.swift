@@ -16,6 +16,10 @@ final class Project: ObservableObject {
     @Published private(set) var touchCount = 0
     /// Width / height of the drawing box; follows the real trackpad once a touch reports its deviceSize.
     @Published var boxAspect = GlyphSet.defaultBoxAspect
+    /// The "Your font" screen (preview, download, publish) is open. Opening it ends trackpad mode.
+    @Published var showingFont = false { didSet { if showingFont { isWriting = false } } }
+    /// Stable id per project, so the "Your font" screen keeps updating the same published font page.
+    @Published private(set) var projectID: String { didSet { UserDefaults.standard.set(projectID, forKey: Keys.projectID) } }
 
     weak var pad: PadView?
 
@@ -25,6 +29,7 @@ final class Project: ObservableObject {
 
     private enum Keys {
         static let currentIndex = "currentIndex"
+        static let projectID = "projectID"
     }
 
     static let defaultFontName = "My Handwriting"
@@ -33,6 +38,7 @@ final class Project: ObservableObject {
         fontName = Project.defaultFontName
         let saved = UserDefaults.standard.integer(forKey: Keys.currentIndex)
         currentIndex = GlyphSet.characters.indices.contains(saved) ? saved : 0
+        projectID = UserDefaults.standard.string(forKey: Keys.projectID) ?? UUID().uuidString
         loadAutosave()
     }
 
@@ -66,7 +72,12 @@ final class Project: ObservableObject {
         scheduleAutosave()
     }
 
-    func next() { currentIndex = min(currentIndex + 1, GlyphSet.characters.count - 1) }
+    var isOnLastGlyph: Bool { currentIndex == GlyphSet.characters.count - 1 }
+
+    /// Advances to the next glyph; past the last one it opens the "Your font" screen.
+    func next() {
+        if isOnLastGlyph { showingFont = true } else { currentIndex += 1 }
+    }
     func previous() { currentIndex = max(currentIndex - 1, 0) }
 
     func jump(to character: Character) {
@@ -110,6 +121,7 @@ final class Project: ObservableObject {
         undoStacks = [:]
         fontName = Project.defaultFontName
         currentIndex = 0
+        projectID = UUID().uuidString
         scheduleAutosave()
     }
 

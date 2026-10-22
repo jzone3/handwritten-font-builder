@@ -25,13 +25,18 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Import Strokes…") { FileActions.importStrokes(into: project) }
                 Button("Export Strokes…") { FileActions.exportStrokes(project) }
-                Button("Open Website") { NSWorkspace.shared.open(Links.website) }
+                Button("Your Font…") { project.showingFont = true }
+                    .help("Preview, download, publish and share the font (⌘⏎)")
             }
+        }
+        .sheet(isPresented: $project.showingFont) {
+            FontSheet()
+                .environmentObject(project)
         }
     }
 }
 
-/// Trackpad-mode switch (bottom-left), the trackpad activity light, and Undo / Clear / Previous / Next.
+/// Trackpad-mode switch (bottom-left), the trackpad activity light, New, and Undo / Clear / Previous / Next (Finish on the last glyph).
 struct ControlBar: View {
     @EnvironmentObject private var project: Project
 
@@ -73,11 +78,19 @@ struct ControlBar: View {
 
             Spacer()
 
+            shortcutButton("New", key: "⌘N") { FileActions.newProject(project) }
+                .help("Clear every glyph and start a new project")
             shortcutButton("Undo", key: "⌘Z", action: project.undo).disabled(!project.canUndo)
             shortcutButton("Clear", key: "⌫", action: project.clear).disabled(project.currentStrokes.isEmpty)
             shortcutButton("Previous", key: "←", action: project.previous).disabled(project.currentIndex == 0)
-            shortcutButton(project.currentStrokes.isEmpty ? "Skip" : "Next", key: "→", action: project.next)
-                .disabled(project.currentIndex == GlyphSet.characters.count - 1)
+            if project.isOnLastGlyph {
+                shortcutButton("Finish", key: "→", action: project.next)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.black)
+                    .help("Open your font: preview, download, publish, share")
+            } else {
+                shortcutButton(project.currentStrokes.isEmpty ? "Skip" : "Next", key: "→", action: project.next)
+            }
         }
         .controlSize(.large)
         .padding(.horizontal, 16)

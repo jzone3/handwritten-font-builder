@@ -40,14 +40,16 @@
     glyphs.push(new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }));
     glyphs.push(new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: Math.round(0.28 * BOX), path: new opentype.Path() }));
 
-    const data = Object.assign({}, glyphData);
+    const norm = normalizeGlyphs(glyphData);
+    const data = norm.glyphs;
+    const normKey = norm.cap.toFixed(3) + ',' + norm.xHeight.toFixed(3) + ',' + norm.descender.toFixed(3);
     for (const [closer, opener] of Object.entries(MIRROR)) {
       if ((!data[closer] || !data[closer].length) && data[opener] && data[opener].length) data[closer] = mirrorX(data[opener]);
     }
     const chars = Object.keys(data).filter(c => data[c] && data[c].length && c !== ' ');
     for (const ch of chars) {
       const strokes = data[ch];
-      const cacheKey = cache ? ch + '|' + thickness + '|' + (opts.versions ? opts.versions[ch] : JSON.stringify(strokes).length) : null;
+      const cacheKey = cache ? ch + '|' + thickness + '|' + normKey + '|' + (opts.versions ? opts.versions[ch] : JSON.stringify(strokes).length) : null;
       let traced = cache && cache.get(cacheKey);
       if (!traced) {
         traced = Tracer.traceStrokes(strokes, thickness);
@@ -100,11 +102,77 @@
     ' ': [0x00A0],
   };
 
+  // ---- baseline / height normalization ----
+  // Everyone draws each letter at a slightly different height and size, so lines of text wobble.
+  // Each glyph is snapped to the baseline and scaled to a shared cap height / x-height / descender
+  // depth. The targets are medians of the user's own letters, so the handwriting keeps its scale.
+  const CAP_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const CAP_PUNCT = '!?#$%&@/\\|([{';
+  const ASC_CHARS = 'bdhkl';          // lowercase that reach cap height
+  const XH_CHARS = 'acemnorsuvwxz';   // lowercase that stop at x-height
+  const DESC_CHARS = 'gjpqy';
+  const TOP_MARKS = '\'"`^*';
+  const MID_MARKS = '-+=~<';
+  const DEFAULT_CAP = 0.56;           // box units, same as the cap-height guide
+  const MIN_SCALE = 0.5, MAX_SCALE = 2;
+
+  function bbox(strokes) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const st of strokes) for (const p of st) {
+      if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
+    }
+    return { minX, maxX, minY, maxY, h: maxY - minY };
+  }
+  function median(a) {
+    if (!a.length) return null;
+    const s = a.slice().sort((x, y) => x - y), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  function normalizeGlyphs(glyphData) {
+    const boxes = {};
+    for (const ch of Object.keys(glyphData)) if (glyphData[ch] && glyphData[ch].length) boxes[ch] = bbox(glyphData[ch]);
+    const heights = (chars) => chars.split('').map(c => boxes[c] && boxes[c].h).filter(h => h > 0.02);
+
+    const caps = heights(CAP_CHARS);
+    const cap = caps.length >= 3 ? median(caps) : DEFAULT_CAP;
+    const xhs = heights(XH_CHARS);
+    const xHeight = xhs.length >= 3 ? clamp(median(xhs), 0.4 * cap, 0.85 * cap) : 0.62 * cap;
+    const depths = DESC_CHARS.split('').map(c => boxes[c] && boxes[c].maxY - BASELINE).filter(d => d > 0.03);
+    const descender = depths.length >= 2 ? clamp(median(depths), 0.15 * cap, 0.6 * cap) : 0.3 * cap;
+
+    // Fit the glyph between two y targets (uniform scale about its centre, bottom pinned), or just slide it.
+    const fit = (strokes, b, top, bottom) => {
+      const s = b.h > 0.02 ? clamp((bottom - top) / b.h, MIN_SCALE, MAX_SCALE) : 1;
+      const cx = (b.minX + b.maxX) / 2;
+      return strokes.map(st => st.map(p => [cx + (p[0] - cx) * s, bottom + (p[1] - b.maxY) * s, p[2] || 0]));
+    };
+    const slide = (strokes, dy) => strokes.map(st => st.map(p => [p[0], p[1] + dy, p[2] || 0]));
+
+    const out = {};
+    for (const ch of Object.keys(glyphData)) {
+      const strokes = glyphData[ch], b = boxes[ch];
+      if (!b) { out[ch] = strokes; continue; }
+      if (CAP_CHARS.includes(ch) || CAP_PUNCT.includes(ch) || ASC_CHARS.includes(ch)) out[ch] = fit(strokes, b, BASELINE - cap, BASELINE);
+      else if (XH_CHARS.includes(ch)) out[ch] = fit(strokes, b, BASELINE - xHeight, BASELINE);
+      else if (DESC_CHARS.includes(ch)) out[ch] = slide(strokes, (b.maxY - BASELINE > 0.03 ? BASELINE + descender : BASELINE) - b.maxY);
+      else if ('ift.:'.includes(ch)) out[ch] = slide(strokes, BASELINE - b.maxY);
+      else if (',;'.includes(ch)) out[ch] = slide(strokes, BASELINE + 0.4 * descender - b.maxY);
+      else if (ch === '_') out[ch] = slide(strokes, BASELINE + 0.08 * cap - b.maxY);
+      else if (TOP_MARKS.includes(ch)) out[ch] = slide(strokes, BASELINE - cap - b.minY);
+      else if (MID_MARKS.includes(ch)) out[ch] = slide(strokes, BASELINE - xHeight / 2 - (b.minY + b.maxY) / 2);
+      else out[ch] = strokes;
+    }
+    return { glyphs: out, cap, xHeight, descender };
+  }
+
   function glyphName(ch) {
     if (/[A-Za-z]/.test(ch)) return ch;
     if (/[0-9]/.test(ch)) return DIGITS[+ch];
     return NAMES[ch] || ('uni' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
   }
 
-  window.FontBuild = { buildFont, UPM, BOX, BASELINE };
+  window.FontBuild = { buildFont, normalizeGlyphs, UPM, BOX, BASELINE };
 })();

@@ -8,6 +8,9 @@
   const ASPECT = 1.6;
   const GUIDES = { cap: 0.20, xh: 0.46, base: 0.76 };
   const STORAGE_KEY = 'hfb.project.v1';
+  // ?embed=mac: the Mac app shows only the "Your font" screen inside a web view and feeds strokes through window.HFB.
+  const EMBED = new URLSearchParams(location.search).has('embed');
+  const tellNative = (msg) => { try { window.webkit.messageHandlers.native.postMessage(msg); } catch (e) {} };
   const MAC_DOWNLOAD = 'https://github.com/jzone3/handwritten-font-builder/releases/latest/download/Handwritten-Font-Builder.dmg';
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclamation mark', '?': 'question mark', "'": 'apostrophe', '"': 'double quote', '-': 'hyphen', '_': 'underscore', '(': 'open paren', ')': 'close paren', '[': 'open bracket', ']': 'close bracket', '{': 'open brace', '}': 'close brace', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at sign', '#': 'hash', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equals', '<': 'less than', '>': 'greater than', '~': 'tilde', '^': 'caret', '|': 'vertical bar', '`': 'backtick' };
 
@@ -36,6 +39,7 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ glyphs: state.glyphs, fontName: state.fontName, thickness: state.thickness, spacing: state.spacing, current: state.current, publish: state.publish, pub: state.pub }));
       if (state.pub) localStorage.setItem('hfb.pub.' + state.pub.id, state.pub.token);
+      if (state.pubKey) localStorage.setItem(state.pubKey, state.pub ? JSON.stringify(state.pub) : '');
     } catch (e) {}
   }
   function load() {
@@ -341,7 +345,7 @@
     document.fonts.add(face);
     currentFace = face; currentFont = font;
     $('previewBox').style.fontFamily = '"' + family + '", "Comic Sans MS", cursive';
-    const n2 = font.glyphs.length - 2;
+    const n2 = CHARSET.filter(c => state.glyphs[c] && state.glyphs[c].length).length;
     status.textContent = n2 + ' of ' + CHARSET.length + ' letters drawn · ' + Math.round(buf.byteLength / 1024) + ' KB' + (n2 < CHARSET.length ? ' · missing letters show in a plain font' : '');
     if (traceCache.size > 400) traceCache.clear();
     if (!$('screen-done').hidden) schedulePublish(buf);
@@ -453,8 +457,9 @@
     };
     reader.readAsText(file);
   }
-  function importData(d) {
+  function importData(d, replace) {
     if (!d || d.format !== 'handwritten-font-strokes' || typeof d.glyphs !== 'object') throw new Error('Expected format "handwritten-font-strokes".');
+    if (replace) { state.glyphs = {}; state.versions = {}; traceCache.clear(); }
     let count = 0;
     for (const [ch, strokes] of Object.entries(d.glyphs)) {
       if (!ACCEPTED.has(ch) || !Array.isArray(strokes)) continue;
@@ -490,12 +495,13 @@
   const SCREENS = ['start', 'draw', 'done'];
   function showScreen(name, push) {
     if (!SCREENS.includes(name)) name = 'start';
-    if (name === 'done' && !Object.keys(state.glyphs).length) name = 'draw';
+    if (EMBED) name = 'done';
+    else if (name === 'done' && !Object.keys(state.glyphs).length) name = 'draw';
     if (drawing) endStroke();
     cancelAdvance();
     for (const s of SCREENS) $('screen-' + s).hidden = s !== name;
     document.querySelectorAll('nav a[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === name));
-    if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    if (!EMBED && location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
     window.scrollTo(0, 0);
     if (name === 'draw') { resizePad(); updateCurrent(); }
     if (name === 'done') { rebuild(); }
@@ -503,7 +509,22 @@
   window.addEventListener('hashchange', () => showScreen(location.hash.slice(1) || 'start', false));
   document.querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); showScreen(a.dataset.nav); }));
   $('finishBtn').addEventListener('click', () => showScreen('done'));
-  $('backToDraw').addEventListener('click', () => showScreen('draw'));
+  $('backToDraw').addEventListener('click', () => { if (EMBED) tellNative({ type: 'keepWriting' }); else showScreen('draw'); });
+  if (EMBED) {
+    document.body.classList.add('embed');
+    $('fontName').addEventListener('input', () => tellNative({ type: 'fontName', value: $('fontName').value }));
+    // Called by the Mac app once the page has loaded: strokes JSON (string or object) plus a stable id per Mac project,
+    // so re-opening the screen keeps updating the same published font page instead of making a new one.
+    window.HFB = {
+      importStrokes(data, projectId) {
+        const d = typeof data === 'string' ? JSON.parse(data) : data;
+        state.pubKey = projectId ? 'hfb.embedpub.' + String(projectId).replace(/[^A-Za-z0-9-]/g, '') : null;
+        state.pub = null;
+        try { const saved = state.pubKey && localStorage.getItem(state.pubKey); if (saved) { const p = JSON.parse(saved); if (p && p.id && p.token) state.pub = p; } } catch (e) {}
+        importData(d, true);
+      },
+    };
+  }
   $('importLink').addEventListener('click', (e) => { e.preventDefault(); $('importFile').click(); });
 
   // Live ticker on the start screen: the newest fonts, each showing its creation time written in that font.
