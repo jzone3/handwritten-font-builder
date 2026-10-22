@@ -10,8 +10,7 @@
   const STORAGE_KEY = 'hfb.project.v1';
   // ?embed=mac: the Mac app shows only the "Your font" screen inside a web view and feeds strokes through window.HFB.
   const EMBED = new URLSearchParams(location.search).has('embed');
-  const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native;
-  const tellNative = (msg) => { try { if (native) native.postMessage(msg); } catch (e) {} };
+  const tellNative = (msg) => { try { window.webkit.messageHandlers.native.postMessage(msg); } catch (e) {} };
   const MAC_DOWNLOAD = 'https://github.com/jzone3/handwritten-font-builder/releases/latest/download/Handwritten-Font-Builder.dmg';
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclamation mark', '?': 'question mark', "'": 'apostrophe', '"': 'double quote', '-': 'hyphen', '_': 'underscore', '(': 'open paren', ')': 'close paren', '[': 'open bracket', ']': 'close bracket', '{': 'open brace', '}': 'close brace', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at sign', '#': 'hash', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equals', '<': 'less than', '>': 'greater than', '~': 'tilde', '^': 'caret', '|': 'vertical bar', '`': 'backtick' };
 

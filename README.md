@@ -5,7 +5,7 @@
 **https://buildyourownfont.com** — write a few letters, get a real font. No photo, no upload of anything you don't choose to share.
 
 - **Website** (`site/`): draw each character with a finger, mouse or trackpad, see the Jabberwocky in your handwriting, download an `.otf`. When you finish, your font gets its own page (`/f/<id>`) you can share; `/fonts` is the leaderboard and the start screen shows a live ticker of new fonts. Turn publishing off with one checkbox.
-- **Mac app** (`mac/`): turns the trackpad into a drawing tablet (touch to write, lift to stop, no clicking) and exports a strokes file you drop onto the website. Download: [latest release](https://github.com/jzone3/handwritten-font-builder/releases/latest).
+- **Mac app** (`mac/`): turns the trackpad into a drawing tablet (touch to write, lift to stop, no clicking). Finish opens "Your font" right in the app (same engine and database as the site): preview, download the `.otf`, publish and share. You can also export a strokes file and import it on the website. Download: [latest release](https://github.com/jzone3/handwritten-font-builder/releases/latest).
 - **API** (`api/`): small Vercel functions on top of Vercel Blob that store published fonts.
 
 The site and the app share one file format: see [FORMAT.md](FORMAT.md).

@@ -1,6 +1,6 @@
 # Handwritten Font Builder (macOS app)
 
-Write each character on the trackpad with a finger, export `<Font Name>.strokes.json`, drop it on the website to get a font.
+Write each character on the trackpad with a finger. **Finish** (→ on the last glyph, ⌘⏎, or the Your Font… button) opens the site's "Your font" screen inside the app: live preview, name, thickness, Download `.otf`, Publish and Share, backed by the same database as fonts made on the website. The strokes go straight in, no file. File → Export Strokes… (`<Font Name>.strokes.json`) still works for importing on the website by hand. **New ⌘N** clears every glyph.
 The file format is `FORMAT.md` at the repo root.
 
 ## Build
