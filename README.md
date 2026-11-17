@@ -24,6 +24,6 @@ The Mac app: `cd mac && xcodegen generate && open HandwrittenFontBuilder.xcodepr
 
 ## How the font is made
 
-Strokes are rasterized with round caps, the pixel boundary is traced and simplified, and the contours become quadratic outlines in an OpenType font built with [opentype.js](https://opentype.js.org/). Guides on the pad (cap height, x-height, baseline) keep the letters lined up; closing brackets are mirrored from the opening ones, and curly quotes and dashes reuse the plain ones you drew.
+Strokes are rasterized with round caps, the pixel boundary is traced and simplified, and the contours become quadratic outlines in an OpenType font built with [opentype.js](https://opentype.js.org/). Guides on the pad (cap height, x-height, baseline) keep the letters lined up; closing brackets are mirrored from the opening ones, and curly quotes and dashes reuse the plain ones you drew. Every glyph also gets two slightly different copies, and the font's `calt` feature cycles through them as you type, so a repeated letter ("ll", "ee") is never the same shape twice in a row (`alternates: 0` in `buildFont` turns this off).
 
 Inspired by [Ivan Leo's handwriting font](https://x.com/ivanleomk/status/2112802990482657770). MIT licensed.

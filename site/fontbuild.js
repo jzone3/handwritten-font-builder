@@ -47,29 +47,46 @@
       if ((!data[closer] || !data[closer].length) && data[opener] && data[opener].length) data[closer] = mirrorX(data[opener]);
     }
     const chars = Object.keys(data).filter(c => data[c] && data[c].length && c !== ' ');
+    // Alternates: each drawn glyph gets `alternates` slightly different copies (a.alt1, a.alt2 …) that
+    // the calt feature cycles through, so a repeated letter never looks stamped.
+    const nAlt = Math.max(0, Math.min(4, opts.alternates == null ? 2 : opts.alternates | 0));
+    const base = [1];                                   // glyph indices of the default forms (space first)
+    const alts = Array.from({ length: nAlt }, () => []); // alts[k-1][i] = k-th alternate of base[i]
+    for (let k = 1; k <= nAlt; k++) alts[k - 1].push(new opentype.Glyph({ name: 'space.alt' + k, advanceWidth: Math.round(0.28 * BOX), path: new opentype.Path() }));
     for (const ch of chars) {
-      const strokes = data[ch];
-      const cacheKey = cache ? ch + '|' + thickness + '|' + normKey + '|' + (opts.versions ? opts.versions[ch] : JSON.stringify(strokes).length) : null;
-      let traced = cache && cache.get(cacheKey);
-      if (!traced) {
-        traced = Tracer.traceStrokes(strokes, thickness);
-        if (cache) cache.set(cacheKey, traced);
-      }
-      if (!traced.contours.length) continue;
+      const made = [];
+      for (let k = 0; k <= nAlt; k++) {
+        const strokes = k ? vary(data[ch], ch, k) : data[ch];
+        const cacheKey = cache ? ch + '|' + k + '|' + thickness + '|' + normKey + '|' + (opts.versions ? opts.versions[ch] : JSON.stringify(strokes).length) : null;
+        let traced = cache && cache.get(cacheKey);
+        if (!traced) {
+          traced = Tracer.traceStrokes(strokes, thickness);
+          if (cache) cache.set(cacheKey, traced);
+        }
+        if (!traced.contours.length) break;
 
-      let minPx = Infinity, maxPx = -Infinity;
-      for (const c of traced.contours) for (const p of c) { if (p[0] < minPx) minPx = p[0]; if (p[0] > maxPx) maxPx = p[0]; }
-      const scale = BOX / traced.res;
-      const toFontX = (px) => Math.round((px - minPx) * scale) + sb;
-      const toFontY = (py) => Math.round((BASELINE - (traced.oy + py / traced.res)) * BOX);
-      const path = new opentype.Path();
-      for (const c of traced.contours) contourToPath(path, c, toFontX, toFontY);
-      const advance = Math.round((maxPx - minPx) * scale) + 2 * sb;
-      glyphs.push(new opentype.Glyph({ name: glyphName(ch), unicode: ch.codePointAt(0), advanceWidth: advance, path }));
+        let minPx = Infinity, maxPx = -Infinity;
+        for (const c of traced.contours) for (const p of c) { if (p[0] < minPx) minPx = p[0]; if (p[0] > maxPx) maxPx = p[0]; }
+        const scale = BOX / traced.res;
+        const toFontX = (px) => Math.round((px - minPx) * scale) + sb;
+        const toFontY = (py) => Math.round((BASELINE - (traced.oy + py / traced.res)) * BOX);
+        const path = new opentype.Path();
+        for (const c of traced.contours) contourToPath(path, c, toFontX, toFontY);
+        const advance = Math.round((maxPx - minPx) * scale) + 2 * sb;
+        made.push({ path, advance });
+      }
+      if (!made.length) continue;
+      base.push(glyphs.length);
+      glyphs.push(new opentype.Glyph({ name: glyphName(ch), unicode: ch.codePointAt(0), advanceWidth: made[0].advance, path: made[0].path }));
       for (const cp of ALIASES[ch] || []) {
-        glyphs.push(new opentype.Glyph({ name: 'uni' + cp.toString(16).toUpperCase().padStart(4, '0'), unicode: cp, advanceWidth: advance, path }));
+        glyphs.push(new opentype.Glyph({ name: 'uni' + cp.toString(16).toUpperCase().padStart(4, '0'), unicode: cp, advanceWidth: made[0].advance, path: made[0].path }));
+      }
+      for (let k = 1; k <= nAlt; k++) {
+        const m = made[k] || made[0];
+        alts[k - 1].push(new opentype.Glyph({ name: glyphName(ch) + '.alt' + k, advanceWidth: m.advance, path: m.path }));
       }
     }
+    const altIndex = alts.map(list => list.map(g => glyphs.push(g) - 1));
 
     const font = new opentype.Font({
       familyName: name,
@@ -79,7 +96,73 @@
       descender: DESCENDER,
       glyphs,
     });
+    if (nAlt && base.length > 1) font.tables.gsub = cycleTable(base, altIndex);
     return font;
+  }
+
+  // GSUB with one calt lookup: a default glyph that follows a default becomes .alt1, one that follows
+  // .alt1 becomes .alt2, and so on; after the last alternate the default shows again. The space takes
+  // part, so the cycle runs through a whole line: d a1 a2 d a1 a2 …
+  function cycleTable(base, altIndex) {
+    const cov = (g) => ({ format: 1, glyphs: g });
+    const n = altIndex.length;
+    const lookups = altIndex.map(a => ({ lookupType: 1, lookupFlag: 0, subtables: [{ substFormat: 2, coverage: cov(base), substitute: a }] }));
+    lookups.push({
+      lookupType: 6, lookupFlag: 0,
+      subtables: altIndex.map((a, k) => ({
+        substFormat: 3,
+        backtrackCoverage: [cov(k ? altIndex[k - 1] : base)],
+        inputCoverage: [cov(base)],
+        lookaheadCoverage: [],
+        lookupRecords: [{ sequenceIndex: 0, lookupListIndex: k }],
+      })),
+    });
+    const langSys = { reqFeatureIndex: 0xffff, featureIndexes: [0] };
+    return {
+      version: 1,
+      scripts: ['DFLT', 'latn'].map(tag => ({ tag, script: { defaultLangSys: langSys, langSysRecords: [] } })),
+      features: [{ tag: 'calt', feature: { featureParams: 0, lookupListIndexes: [n] } }],
+      lookups,
+    };
+  }
+
+  // A slightly different copy of one take: the same letter written again. Small tilt, slant, size and
+  // baseline changes for the whole letter plus a slow wobble along each stroke. Seeded by the character
+  // and the alternate number, so a rebuild gives the same font.
+  function vary(strokes, ch, k) {
+    let seed = (ch.codePointAt(0) * 2654435761 + k * 40503) >>> 0;
+    const rnd = () => {                                  // mulberry32, in -1..1
+      seed = (seed + 0x6D2B79F5) >>> 0;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 2147483648 - 1;
+    };
+    const b = bbox(strokes);
+    const size = Math.max(b.h, b.maxX - b.minX, 0.05);
+    const cx = (b.minX + b.maxX) / 2, by = b.maxY;       // pivot: bottom centre, so the letter stays on its line
+    const rot = rnd() * 0.07, shear = rnd() * 0.09;
+    const sx = 1 + rnd() * 0.08, sy = 1 + rnd() * 0.05;
+    const dy = rnd() * 0.008;
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    return strokes.map(st => {
+      const ox = rnd() * 0.012 * size, oy = rnd() * 0.012 * size;
+      const ax = rnd() * 0.03 * size, ay = rnd() * 0.03 * size;
+      const fx = 0.6 + Math.abs(rnd()), fy = 0.6 + Math.abs(rnd());
+      const px = rnd() * Math.PI, py = rnd() * Math.PI;
+      const n = Math.max(1, st.length - 1);
+      return st.map((p, i) => {
+        const u = i / n;
+        let x = (p[0] - cx) * sx, y = (p[1] - by) * sy;
+        x += -y * shear;
+        const rx = x * cos - y * sin, ry = x * sin + y * cos;
+        return [
+          cx + rx + ox + ax * Math.sin(2 * Math.PI * fx * u + px),
+          by + ry + oy + dy + ay * Math.sin(2 * Math.PI * fy * u + py),
+          p[2] || 0,
+        ];
+      });
+    });
   }
 
   const NAMES = { '.': 'period', ',': 'comma', '!': 'exclam', '?': 'question', "'": 'quotesingle', '"': 'quotedbl', '-': 'hyphen', '_': 'underscore', '(': 'parenleft', ')': 'parenright', '[': 'bracketleft', ']': 'bracketright', '{': 'braceleft', '}': 'braceright', '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon', '@': 'at', '#': 'numbersign', '$': 'dollar', '%': 'percent', '&': 'ampersand', '*': 'asterisk', '+': 'plus', '=': 'equal', '<': 'less', '>': 'greater', '~': 'asciitilde', '^': 'asciicircum', '|': 'bar', '`': 'grave' };
