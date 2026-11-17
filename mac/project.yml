@@ -22,6 +22,19 @@ targets:
     platform: macOS
     sources:
       - path: HandwrittenFontBuilder
+      # The website's font engine, bundled so File → Export Font works offline (see Model/FontExporter.swift).
+      - path: ../site/vendor/opentype.min.js
+        group: FontEngine
+        buildPhase: resources
+      - path: ../site/tracer.js
+        group: FontEngine
+        buildPhase: resources
+      - path: ../site/fontbuild.js
+        group: FontEngine
+        buildPhase: resources
+      - path: FontEngine/export-font.js
+        group: FontEngine
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jzone3.HandwrittenFontBuilder

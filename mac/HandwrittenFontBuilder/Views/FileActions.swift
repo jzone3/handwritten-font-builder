@@ -1,7 +1,7 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// New / Import / Export, all on the main window with stock panels and sheets.
+/// New / Import / Export (strokes and font), all on the main window with stock panels and sheets.
 @MainActor
 enum FileActions {
     private static var window: NSWindow? { NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible } }
@@ -58,6 +58,55 @@ enum FileActions {
             }
         }
         if let window { panel.beginSheetModal(for: window, completionHandler: handler) } else { handler(panel.runModal()) }
+    }
+
+    /// Builds the .otf on this Mac (no network) and saves it where the user chooses.
+    static func exportFont(_ project: Project) {
+        guard project.drawnCount > 0 else {
+            let alert = NSAlert()
+            alert.messageText = "Nothing to export yet"
+            alert.informativeText = "Draw at least one glyph, then export the font."
+            present(alert, completion: nil)
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "otf") ?? .data]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        let name = project.fontName.trimmingCharacters(in: .whitespacesAndNewlines)
+        panel.nameFieldStringValue = "\(name.isEmpty ? Project.defaultFontName : name).otf"
+        let contents = project.contents
+        let handler: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .OK, let url = panel.url else { return }
+            FontExporter.buildFont(from: contents) { result in
+                do {
+                    try result.get().write(to: url, options: .atomic)
+                    showFontExported(url)
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Couldn’t export the font"
+                    alert.informativeText = error.localizedDescription
+                    present(alert, completion: nil)
+                }
+            }
+        }
+        if let window { panel.beginSheetModal(for: window, completionHandler: handler) } else { handler(panel.runModal()) }
+    }
+
+    private static func showFontExported(_ url: URL) {
+        let alert = NSAlert()
+        alert.messageText = "Font exported"
+        alert.informativeText = "Open the file and click Install in Font Book to use it in any app.\n\n\(url.lastPathComponent)"
+        alert.addButton(withTitle: "Open Font")
+        alert.addButton(withTitle: "Show in Finder")
+        alert.addButton(withTitle: "Done")
+        present(alert) { response in
+            switch response {
+            case .alertFirstButtonReturn: NSWorkspace.shared.open(url)
+            case .alertSecondButtonReturn: NSWorkspace.shared.activateFileViewerSelecting([url])
+            default: break
+            }
+        }
     }
 
     private static func showExported(_ url: URL) {

@@ -32,6 +32,9 @@ struct HandwrittenFontBuilderApp: App {
                 Divider()
                 Button("Import Strokes…") { FileActions.importStrokes(into: project) }.keyboardShortcut("i")
                 Button("Export Strokes…") { FileActions.exportStrokes(project) }.keyboardShortcut("e")
+                Button("Export Font (.otf)…") { FileActions.exportFont(project) }
+                    .keyboardShortcut("e", modifiers: [.command, .shift])
+                    .disabled(project.drawnCount == 0)
                 Divider()
                 Button("Your Font…") { project.showingFont = true }.keyboardShortcut(.return)
                 Button("Open Website") { NSWorkspace.shared.open(Links.website) }

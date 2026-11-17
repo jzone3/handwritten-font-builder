@@ -1,6 +1,7 @@
 # Handwritten Font Builder (macOS app)
 
 Write each character on the trackpad with a finger. **Finish** (→ on the last glyph, ⌘⏎, or the Your Font… button) opens the site's "Your font" screen inside the app: live preview, name, thickness, Download `.otf`, Publish and Share, backed by the same database as fonts made on the website. The strokes go straight in, no file. File → Export Strokes… (`<Font Name>.strokes.json`) still works for importing on the website by hand. **New ⌘N** clears every glyph.
+**File → Export Font (.otf)… ⇧⌘E** builds the font on the Mac with no network: the site's engine (`site/tracer.js`, `site/fontbuild.js`, `site/vendor/opentype.min.js`) is bundled into the app and run in a hidden web view by `Model/FontExporter.swift`, with `FontEngine/export-font.js` as the glue. It uses the default thickness and spacing; the "Your font" screen is where those are tuned.
 The file format is `FORMAT.md` at the repo root.
 
 ## Build
